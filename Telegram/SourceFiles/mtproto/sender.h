@@ -300,6 +300,11 @@ public:
 			return *this;
 		}
 
+		[[nodiscard]] SpecificRequestBuilder &xxxgramDeadline(int32 deadline) noexcept {
+			_xxxgramDeadline = deadline;
+			return *this;
+		}
+
 		mtpRequestId send() {
 			const auto id = sender()->_instance->send(
 				_request,
@@ -308,13 +313,15 @@ public:
 				takeDcId(),
 				takeCanWait(),
 				takeAfter(),
-				takeOverrideRequestId());
+				takeOverrideRequestId(),
+				_xxxgramDeadline);
 			registerRequest(id);
 			return id;
 		}
 
 	private:
 		Request _request;
+		int32 _xxxgramDeadline = 0;
 
 	};
 

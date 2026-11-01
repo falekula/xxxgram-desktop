@@ -155,13 +155,16 @@ public:
 			ShiftedDcId shiftedDcId = 0,
 			crl::time msCanWait = 0,
 			mtpRequestId afterRequestId = 0,
-			mtpRequestId overrideRequestId = 0) {
+			mtpRequestId overrideRequestId = 0,
+			int32 xxxgramDeadline = 0) {
 		const auto requestId = overrideRequestId
 			? overrideRequestId
 			: details::GetNextRequestId();
+		auto serialized = details::SerializedRequest::Serialize(request);
+		serialized->xxxgramScheduleDeadline = xxxgramDeadline;
 		sendSerialized(
 			requestId,
-			details::SerializedRequest::Serialize(request),
+			std::move(serialized),
 			std::move(callbacks),
 			shiftedDcId,
 			msCanWait,
@@ -177,14 +180,16 @@ public:
 			ShiftedDcId shiftedDcId = 0,
 			crl::time msCanWait = 0,
 			mtpRequestId afterRequestId = 0,
-			mtpRequestId overrideRequestId = 0) {
+			mtpRequestId overrideRequestId = 0,
+			int32 xxxgramDeadline = 0) {
 		return send(
 			request,
 			ResponseHandler{ std::move(onDone), std::move(onFail) },
 			shiftedDcId,
 			msCanWait,
 			afterRequestId,
-			overrideRequestId);
+			overrideRequestId,
+			xxxgramDeadline);
 	}
 
 	template <typename Request>

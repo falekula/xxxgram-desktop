@@ -215,6 +215,10 @@ QIcon CreateSupportIcon(Main::Session *session) {
 }
 
 QIcon CreateIcon(Main::Session *session, bool returnNullIfDefault) {
+	const auto custom = QIcon(cWorkingDir() + u"xxxgram-icon.png"_q);
+	if (!custom.isNull()) {
+		return custom;
+	}
 	const auto supportIcon = CreateSupportIcon(session);
 	if (!supportIcon.isNull() || returnNullIfDefault) {
 		return supportIcon;
@@ -914,7 +918,7 @@ void MainWindow::updateTitle() {
 		: Dialogs::Key();
 	const auto thread = key ? key.thread() : nullptr;
 	if (!thread) {
-		setTitle((user.isEmpty() ? u"Telegram"_q : user) + added + suffix);
+		setTitle((user.isEmpty() ? u"xxxgram"_q : user) + added + suffix);
 		return;
 	}
 	const auto history = thread->owningHistory();

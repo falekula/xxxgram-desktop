@@ -96,6 +96,7 @@ QByteArray SessionSettings::serialize() const {
 		size += sizeof(quint64) + Serialize::stringSize(id.emoji());
 	}
 	size += sizeof(qint32); // _stashHintShowsCount
+	size += 3 * sizeof(qint32);
 
 	auto result = QByteArray();
 	result.reserve(size);
@@ -189,6 +190,9 @@ QByteArray SessionSettings::serialize() const {
 			stream << quint64(id.custom()) << id.emoji();
 		}
 		stream << qint32(_stashHintShowsCount);
+		stream << qint32(_xxxgramSendDelaySeconds)
+			<< qint32(_xxxgramHistoryRecordLimit)
+			<< qint32(_xxxgramHistoryMegabytes);
 	}
 
 	Ensures(result.size() == size);
@@ -266,6 +270,9 @@ void SessionSettings::addFromSerialized(const QByteArray &serialized) {
 	qint32 phoneNumberHidden = 0;
 	std::vector<Data::ReactionId> extraFavoriteReactions;
 	qint32 stashHintShowsCount = 0;
+	auto xxxgramSendDelaySeconds = qint32(15);
+	auto xxxgramHistoryRecordLimit = qint32(500);
+	auto xxxgramHistoryMegabytes = qint32(4);
 
 	stream >> versionTag;
 	if (versionTag == kVersionTag) {
@@ -751,6 +758,11 @@ void SessionSettings::addFromSerialized(const QByteArray &serialized) {
 	if (!stream.atEnd()) {
 		stream >> stashHintShowsCount;
 	}
+	if (!stream.atEnd()) {
+		stream >> xxxgramSendDelaySeconds
+			>> xxxgramHistoryRecordLimit
+			>> xxxgramHistoryMegabytes;
+	}
 	if (stream.status() != QDataStream::Ok) {
 		LOG(("App Error: "
 			"Bad data for SessionSettings::addFromSerialized()"));
@@ -818,6 +830,9 @@ void SessionSettings::addFromSerialized(const QByteArray &serialized) {
 	_phoneNumberHidden = (phoneNumberHidden == 1);
 	_extraFavoriteReactions = std::move(extraFavoriteReactions);
 	_stashHintShowsCount = stashHintShowsCount;
+	setXxxgramSendDelaySeconds(xxxgramSendDelaySeconds);
+	setXxxgramHistoryRecordLimit(xxxgramHistoryRecordLimit);
+	setXxxgramHistoryMegabytes(xxxgramHistoryMegabytes);
 
 	if (version < 2) {
 		app.setLastSeenWarningSeen(appLastSeenWarningSeen == 1);
@@ -1079,6 +1094,18 @@ void SessionSettings::setExtraFavoriteReactions(
 auto SessionSettings::extraFavoriteReactions() const
 -> const std::vector<Data::ReactionId> & {
 	return _extraFavoriteReactions;
+}
+
+void SessionSettings::setXxxgramSendDelaySeconds(int value) {
+	_xxxgramSendDelaySeconds = std::clamp(value, 15, 300);
+}
+
+void SessionSettings::setXxxgramHistoryRecordLimit(int value) {
+	_xxxgramHistoryRecordLimit = std::clamp(value, 1, 10000);
+}
+
+void SessionSettings::setXxxgramHistoryMegabytes(int value) {
+	_xxxgramHistoryMegabytes = std::clamp(value, 1, 64);
 }
 
 } // namespace Main

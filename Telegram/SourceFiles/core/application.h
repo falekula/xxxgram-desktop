@@ -116,6 +116,7 @@ struct LocalUrlHandler;
 class ScreenshotProtection;
 class Settings;
 class Tray;
+class XxxgramWsProxy;
 
 enum class LaunchState {
 	Running,
@@ -239,6 +240,7 @@ public:
 	void checkProxyRotation(not_null<Main::Account*> account, int32 state);
 	[[nodiscard]] rpl::producer<ProxyChange> proxyChanges() const;
 	void badMtprotoConfigurationError();
+	[[nodiscard]] XxxgramWsProxy &xxxgramWsProxy() const;
 
 	// Databases.
 	[[nodiscard]] Storage::Databases &databases() {

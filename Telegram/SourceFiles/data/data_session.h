@@ -52,6 +52,7 @@ class Data;
 
 namespace Data {
 
+class XxxgramHistory;
 class Folder;
 class LocationPoint;
 class WallPaper;
@@ -177,6 +178,7 @@ public:
 
 	explicit Session(not_null<Main::Session*> session);
 	~Session();
+	[[nodiscard]] XxxgramHistory &xxxgramHistory();
 
 	[[nodiscard]] Main::Session &session() const {
 		return *_session;
@@ -1425,6 +1427,7 @@ private:
 	mutable base::flat_map<PeerId, std::vector<FullMsgId>> _messagesWithPeer;
 
 	Groups _groups;
+	std::unique_ptr<XxxgramHistory> _xxxgramHistory;
 	const std::unique_ptr<AiComposeTones> _aiComposeTones;
 	const std::unique_ptr<ChatFilters> _chatsFilters;
 	const std::unique_ptr<CloudThemes> _cloudThemes;

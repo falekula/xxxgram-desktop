@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/view/history_view_object.h"
 #include "ui/text/text.h"
 #include "base/flags.h"
+#include "base/timer.h"
 
 namespace Ui {
 struct ChatPaintContext;
@@ -56,6 +57,10 @@ public:
 		QDateTime date;
 		QDateTime editedDate;
 		QString author;
+		QString localHistoryLabel;
+		QString scheduledStatus;
+		FullMsgId countdownItemId;
+		crl::time countdownInterval = 1000;
 		EffectId effectId = 0;
 		int64 tonStake = 0;
 		int stars = 0;
@@ -123,6 +128,8 @@ private:
 
 	const not_null<::Data::Reactions*> _reactionsOwner;
 	Data _data;
+	mutable base::Timer _countdownTimer;
+	int _countdownPadding = 0;
 	Ui::Text::String _authorEditedDate;
 	Ui::Text::String _views;
 	Ui::Text::String _replies;

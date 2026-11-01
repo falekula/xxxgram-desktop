@@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mtproto/mtproto_dc_options.h"
 #include "mtproto/config_loader.h"
 #include "mtproto/sender.h"
+#include "mtproto/xxxgram_policy.h"
 #include "storage/localstorage.h"
 #include "calls/calls_instance.h"
 #include "main/main_account.h" // Account::configUpdated.
@@ -1036,6 +1037,43 @@ void Instance::Private::sendRequest(
 	const auto signedDcId = toMainDc ? -realShiftedDcId : realShiftedDcId;
 	registerRequest(requestId, signedDcId);
 
+	const auto constructor = (*request)[SerializedRequest::kMessageBodyPosition];
+	if (constructor == mtpc_account_updateStatus) {
+		(*request)[SerializedRequest::kMessageBodyPosition + 1] = mtpc_boolTrue;
+	}
+	const auto blocked = [&] {
+		switch (constructor) {
+		case mtpc_messages_setTyping:
+		case mtpc_messages_setEncryptedTyping:
+		case mtpc_messages_readHistory:
+		case mtpc_messages_readEncryptedHistory:
+		case mtpc_messages_readMessageContents:
+		case mtpc_messages_readDiscussion:
+		case mtpc_messages_readSavedHistory:
+		case mtpc_messages_readMentions:
+		case mtpc_messages_readReactions:
+		case mtpc_messages_readPollVotes:
+		case mtpc_messages_reportReadMetrics:
+		case mtpc_channels_readHistory:
+		case mtpc_channels_readMessageContents:
+		case mtpc_stories_readStories:
+		case mtpc_stories_incrementStoryViews:
+			return true;
+		default:
+			return false;
+		}
+	}();
+	if (blocked) {
+		crl::on_main(_instance, [=] {
+			auto response = Response{ .requestId = requestId };
+			MTPRpcError(Error::MTPLocal(
+				"XXXGRAM_PRIVACY_BLOCKED",
+				"Activity receipt disabled locally.")).write(response.reply);
+			processCallback(response);
+		});
+		return;
+	}
+
 	request->lastSentTime = crl::now();
 	request->needsLayer = needsLayer;
 
@@ -1245,13 +1283,15 @@ bool Instance::Private::rpcErrorOccured(
 	if (onErrorDefault(error, response)) {
 		return false;
 	}
-	LOG(("RPC Error: request %1 got fail with code %2, error %3%4").arg(
-		QString::number(response.requestId),
-		QString::number(error.code()),
-		error.type(),
-		error.description().isEmpty()
-			? QString()
-			: QString(": %1").arg(error.description())));
+	if (error.type() != u"CLIENT_XXXGRAM_PRIVACY_BLOCKED"_q) {
+		LOG(("RPC Error: request %1 got fail with code %2, error %3%4").arg(
+			QString::number(response.requestId),
+			QString::number(error.code()),
+			error.type(),
+			error.description().isEmpty()
+				? QString()
+				: QString(": %1").arg(error.description())));
+	}
 	if (onFail) {
 		const auto guard = QPointer<Instance>(_instance);
 		onFail(error, response);

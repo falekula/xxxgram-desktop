@@ -1,0 +1,14 @@
+anyio==4.11.0
+certifi==2025.10.5
+cffi==2.0.0
+cryptography==46.0.5
+h11==0.16.0
+h2==4.3.0
+hpack==4.1.0
+httpcore==1.0.9
+httpx==0.28.1
+hyperframe==6.1.0
+idna==3.11
+pycparser==2.23
+sniffio==1.3.1
+typing_extensions==4.15.0

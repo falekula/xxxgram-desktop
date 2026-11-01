@@ -90,6 +90,7 @@ public:
 	SerializedRequest after;
 	crl::time lastSentTime = 0;
 	mtpRequestId requestId = 0;
+	int32 xxxgramScheduleDeadline = 0;
 	bool needsLayer = false;
 	bool forceSendInContainer = false;
 

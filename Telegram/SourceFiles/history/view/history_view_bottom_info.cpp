@@ -6,6 +6,11 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_bottom_info.h"
+#include "data/xxxgram_history.h"
+#include "api/api_common.h"
+#include "data/data_document.h"
+#include "data/data_photo.h"
+#include "data/data_media_types.h"
 
 #include "ui/chat/message_bubble.h"
 #include "ui/chat/chat_style.h"
@@ -95,7 +100,13 @@ BottomInfo::BottomInfo(
 	not_null<::Data::Reactions*> reactionsOwner,
 	Data &&data)
 : _reactionsOwner(reactionsOwner)
-, _data(std::move(data)) {
+, _data(std::move(data))
+, _countdownTimer([=] {
+	const auto owner = &_reactionsOwner->session().data();
+	if (const auto item = owner->message(_data.countdownItemId)) {
+		owner->notifyItemDataChange(item);
+	}
+}) {
 	layout();
 }
 
@@ -103,6 +114,9 @@ BottomInfo::~BottomInfo() = default;
 
 void BottomInfo::update(Data &&data, int availableWidth) {
 	_data = std::move(data);
+	if (!_data.countdownItemId) {
+		_countdownTimer.cancel();
+	}
 	layout();
 	if (width() > 0) {
 		resizeGetHeight(std::min(maxWidth(), availableWidth));
@@ -153,6 +167,7 @@ int BottomInfo::firstLineWidth() const {
 bool BottomInfo::isWide() const {
 	return (_data.flags & Data::Flag::Edited)
 		|| _data.scheduleRepeatPeriod
+		|| !_data.scheduledStatus.isEmpty()
 		|| !_data.author.isEmpty()
 		|| !_views.isEmpty()
 		|| !_replies.isEmpty()
@@ -269,6 +284,9 @@ void BottomInfo::paint(
 		bool unread,
 		bool inverted,
 		const PaintContext &context) const {
+	if (_data.countdownItemId && !_countdownTimer.isActive()) {
+		_countdownTimer.callOnce(_data.countdownInterval);
+	}
 	const auto st = context.st;
 	const auto stm = context.messageStyle();
 
@@ -500,12 +518,19 @@ void BottomInfo::layoutDateText() {
 		: QString();
 	const auto author = _data.author;
 	const auto prefix = !author.isEmpty() ? u", "_q : QString();
-	const auto date = editedPrimary
+	_countdownPadding = (_data.countdownItemId && !_data.scheduledStatus.isEmpty())
+		? std::max(0, st::msgDateFont->width(u"через 300 с"_q)
+			- st::msgDateFont->width(_data.scheduledStatus))
+		: 0;
+	const auto date = (_data.scheduledStatus.isEmpty()
+		? QString() : _data.scheduledStatus + u" · "_q)
+		+ (_data.localHistoryLabel.isEmpty()
+		? QString() : _data.localHistoryLabel + u" · "_q) + (editedPrimary
 		? FormatEditedDate(_data.date, _data.editedDate)
 		: edited + ((_data.flags
 			& (Data::Flag::ForwardedDate | Data::Flag::FullDate))
 		? Ui::FormatDateTimeSavedFrom(_data.date)
-		: QLocale().toString(_data.date.time(), QLocale::ShortFormat));
+		: QLocale().toString(_data.date.time(), QLocale::ShortFormat)));
 	const auto afterAuthor = prefix + date;
 	const auto afterAuthorWidth = st::msgDateFont->width(afterAuthor);
 	const auto authorWidth = st::msgDateFont->width(author);
@@ -593,7 +618,7 @@ QSize BottomInfo::countOptimalSize() {
 	if (_data.flags & (Data::Flag::OutLayout | Data::Flag::Sending)) {
 		width += st::historySendStateSpace;
 	}
-	width += _authorEditedDate.maxWidth();
+	width += _authorEditedDate.maxWidth() + _countdownPadding;
 	if (!_views.isEmpty()) {
 		width += st::historyViewsSpace
 			+ _views.maxWidth()
@@ -663,6 +688,29 @@ BottomInfo::Data BottomInfoDataFromMessage(not_null<Message*> message) {
 	const auto item = message->data();
 
 	auto result = BottomInfo::Data();
+	result.localHistoryLabel = item->history()->owner().xxxgramHistory().label(
+		item->fullId());
+	if (item->isScheduled()) {
+		if (item->hasFailed()) {
+			result.scheduledStatus = u"ошибка"_q;
+		} else if (item->isSending()) {
+			const auto media = item->media();
+			const auto photo = media ? media->photo() : nullptr;
+			const auto document = media ? media->document() : nullptr;
+			const auto uploading = (photo && photo->uploading())
+				|| (document && document->uploading());
+			result.scheduledStatus = uploading ? u"загрузка"_q : u"в очереди"_q;
+		} else if (item->date() < Api::kScheduledUntilOnlineTimestamp) {
+			const auto remaining = item->date() - base::unixtime::now();
+			result.countdownItemId = item->fullId();
+			result.countdownInterval = remaining > 300 ? 60000 : 1000;
+			if (remaining <= 300) {
+				result.scheduledStatus = remaining > 0
+					? u"через %1 с"_q.arg(remaining)
+					: u"отправляется"_q;
+			}
+		}
+	}
 	result.date = message->dateTime();
 	result.effectId = item->effectId();
 	if (message->hasOutLayout()) {

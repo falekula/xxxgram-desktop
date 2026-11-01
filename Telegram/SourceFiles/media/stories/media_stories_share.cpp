@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "media/stories/media_stories_share.h"
 
+#include "api/xxxgram_policy.h"
 #include "api/api_common.h"
 #include "apiwrap.h"
 #include "base/random.h"
@@ -134,7 +135,9 @@ namespace Media::Stories {
 		const auto api = &story->session().api();
 		auto &histories = story->owner().histories();
 		for (const auto &thread : result) {
-			const auto action = Api::SendAction(thread, options);
+			auto action = Api::SendAction(thread, options);
+			Api::ApplyXxxgramSchedule(action);
+			options = action.options;
 			if (!comment.text.isEmpty()) {
 				auto message = Api::MessageToSend(action);
 				message.textWithTags = comment;
@@ -200,7 +203,7 @@ namespace Media::Stories {
 					MTP_long(randomId),
 					MTPReplyMarkup(),
 					MTPVector<MTPMessageEntity>(),
-					MTP_int(options.scheduled),
+					Api::XxxgramSchedule(options),
 					MTP_int(options.scheduleRepeatPeriod),
 					MTP_inputPeerEmpty(),
 					Data::ShortcutIdToMTP(session, options.shortcutId),

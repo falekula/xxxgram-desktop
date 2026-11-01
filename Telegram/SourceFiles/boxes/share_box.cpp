@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/share_box.h"
 
+#include "api/xxxgram_policy.h"
+#include "api/xxxgram_copy.h"
 #include "api/api_premium.h"
 #include "base/call_delayed.h"
 #include "base/random.h"
@@ -1863,6 +1865,35 @@ ShareBox::SubmitCallback ShareBox::DefaultForwardCallback(
 			return;
 		}
 
+		auto privacyAction = Api::SendAction(result.front(), options);
+		Api::ApplyXxxgramSchedule(privacyAction);
+		options = privacyAction.options;
+		if (ranges::any_of(items, &HistoryItem::xxxgramNeedsCopy)) {
+			auto actions = std::vector<Api::SendAction>();
+			actions.reserve(result.size());
+			for (const auto thread : result) {
+				const auto peer = thread->peer();
+				const auto forum = thread->owningHistory()->asForum();
+				const auto effective = forum && forum->bot()
+					&& Data::IsBotUserCreatesTopics(peer) && !thread->asTopic()
+					? static_cast<Data::Thread*>(forum->reserveNewBotTopic())
+					: thread.get();
+				if (!effective) {
+					return;
+				}
+				actions.emplace_back(effective, options);
+			}
+			show->hideLayer();
+			if (Api::XxxgramCopyIfNeeded(
+				items,
+				std::move(actions),
+				forwardOptions,
+				std::move(comment))) {
+				return;
+			}
+			return;
+		}
+
 		using Flag = MTPmessages_ForwardMessages::Flag;
 		const auto commonSendFlags = Flag(0)
 			| Flag::f_with_my_score
@@ -2017,7 +2048,10 @@ ShareBox::SubmitCallback ShareBox::DefaultForwardCallback(
 					for (auto &value : randoms) {
 						value = base::RandomValue<MTPlong>();
 					}
-					return MTPmessages_ForwardMessages(
+					const auto deadline = options.xxxgramAutomaticSchedule
+						? Api::XxxgramAutomaticDate(history)
+						: TimeId(0);
+					return { MTPmessages_ForwardMessages(
 						MTP_flags(flags),
 						fromPeer->input(),
 						MTP_vector<MTPint>(mtpMsgIds),
@@ -2028,7 +2062,7 @@ ShareBox::SubmitCallback ShareBox::DefaultForwardCallback(
 							? MTP_inputReplyToMonoForum(
 								sublistPeer->input())
 							: MTPInputReplyTo()),
-						MTP_int(options.scheduled),
+						MTP_int(deadline ? deadline : options.scheduled),
 						MTP_int(options.scheduleRepeatPeriod),
 						MTP_inputPeerEmpty(),
 						Data::ShortcutIdToMTP(
@@ -2037,7 +2071,7 @@ ShareBox::SubmitCallback ShareBox::DefaultForwardCallback(
 						MTP_long(options.effectId),
 						MTP_int(videoTimestamp.value_or(0)),
 						MTP_long(starsPaid),
-						Api::SuggestToMTP(options.suggest));
+						Api::SuggestToMTP(options.suggest)), deadline };
 				};
 				const auto requestKey = ++state->nextRequestKey;
 				state->requests.insert(requestKey);

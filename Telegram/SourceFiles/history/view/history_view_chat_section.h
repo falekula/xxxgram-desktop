@@ -599,6 +599,7 @@ private:
 	bool _kbShown = false;
 	bool _fieldHasSendText = false;
 	std::unique_ptr<HistoryView::StickerToast> _stickerToast;
+	crl::time _xxxgramLastQueueToast = 0;
 	InfoTooltip _topToast;
 
 	FullMsgId _lastShownAt;

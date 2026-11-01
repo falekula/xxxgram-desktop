@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "core/application.h"
+#include "core/xxxgram_proxy.h"
 
 #include "data/data_abstract_structure.h"
 #include "data/data_channel.h"
@@ -159,6 +160,7 @@ struct Application::Private {
 	UiIntegration uiIntegration;
 	Settings settings;
 	std::unique_ptr<ProxyRotationManager> proxyRotation;
+	std::unique_ptr<XxxgramWsProxy> xxxgramWsProxy;
 };
 
 Application::Application()
@@ -261,6 +263,7 @@ void Application::closeAdditionalWindows() {
 }
 
 Application::~Application() {
+	_private->xxxgramWsProxy = nullptr;
 	if (_savedWindows) {
 		_savedWindows->writeNow();
 	}
@@ -323,6 +326,7 @@ void Application::run() {
 	ValidateScale();
 
 	refreshGlobalProxy(); // Depends on app settings being read.
+	_private->xxxgramWsProxy = std::make_unique<XxxgramWsProxy>(this);
 
 	if (const auto old = Local::oldSettingsVersion(); old < AppVersion) {
 		autoRegisterUrlScheme();
@@ -923,6 +927,10 @@ void Application::setCurrentProxy(
 
 void Application::proxyRotationSettingsChanged() {
 	_private->proxyRotation->settingsChanged();
+}
+
+XxxgramWsProxy &Application::xxxgramWsProxy() const {
+	return *_private->xxxgramWsProxy;
 }
 
 void Application::checkProxyRotation(

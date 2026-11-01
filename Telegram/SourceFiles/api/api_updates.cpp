@@ -235,6 +235,7 @@ Updates::Updates(not_null<Main::Session*> session)
 : _session(session)
 , _noUpdatesTimer([=] { sendPing(); })
 , _onlineTimer([=] { updateOnline(); })
+, _xxxgramOfflineTimer([=] { requestXxxgramOffline(); })
 , _ptsWaiter(this)
 , _byPtsTimer([=] { getDifferenceByPts(); })
 , _bySeqTimer([=] { getDifference(); })
@@ -1025,13 +1026,15 @@ void Updates::updateOnline(crl::time lastNonIdleTime, bool gotOtherOffline) {
 
 		_lastWasOnline = isOnline;
 		_lastSetOnline = ms;
+		_xxxgramLastOfflineRequest = ms;
+		_xxxgramOfflineTimer.cancel();
 		if (!Core::Quitting()) {
 			_onlineRequest = api().request(MTPaccount_UpdateStatus(
-				MTP_bool(!isOnline)
+				MTP_bool(true)
 			)).send();
 		} else {
 			_onlineRequest = api().request(MTPaccount_UpdateStatus(
-				MTP_bool(!isOnline)
+				MTP_bool(true)
 			)).done([=] {
 				Core::App().quitPreventFinished();
 			}).fail([=] {
@@ -1040,9 +1043,8 @@ void Updates::updateOnline(crl::time lastNonIdleTime, bool gotOtherOffline) {
 		}
 
 		const auto self = session().user();
-		const auto onlineFor = (config.onlineUpdatePeriod / 1000);
 		self->updateLastseen(Data::LastseenStatus::OnlineTill(
-			base::unixtime::now() + (isOnline ? onlineFor : -1)));
+			base::unixtime::now() - 1));
 		session().changes().peerUpdated(
 			self,
 			Data::PeerUpdate::Flag::OnlineStatus);
@@ -1059,6 +1061,22 @@ void Updates::updateOnline(crl::time lastNonIdleTime, bool gotOtherOffline) {
 		Assert(updateIn >= 0);
 	}
 	_onlineTimer.callOnce(updateIn);
+}
+
+void Updates::requestXxxgramOffline() {
+	if (Core::Quitting()) {
+		return;
+	}
+	const auto remaining = _xxxgramLastOfflineRequest + 2000 - crl::now();
+	if (remaining > 0) {
+		_xxxgramOfflineTimer.callOnce(remaining);
+		return;
+	}
+	_xxxgramLastOfflineRequest = crl::now();
+	api().request(base::take(_onlineRequest)).cancel();
+	_onlineRequest = api().request(MTPaccount_UpdateStatus(
+		MTP_bool(true)
+	)).send();
 }
 
 void Updates::checkIdleFinish(crl::time lastNonIdleTime) {
@@ -2120,12 +2138,14 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 		if (UserId(d.vuser_id()) == session().userId()) {
 			if (d.vstatus().type() == mtpc_userStatusOffline
 				|| d.vstatus().type() == mtpc_userStatusEmpty) {
-				updateOnline(Core::App().lastNonIdleTime(), true);
+				_xxxgramOfflineTimer.cancel();
+				updateOnline(Core::App().lastNonIdleTime(), false);
 				if (d.vstatus().type() == mtpc_userStatusOffline) {
 					cSetOtherOnline(
 						d.vstatus().c_userStatusOffline().vwas_online().v);
 				}
 			} else if (d.vstatus().type() == mtpc_userStatusOnline) {
+				requestXxxgramOffline();
 				cSetOtherOnline(
 					d.vstatus().c_userStatusOnline().vexpires().v);
 			}

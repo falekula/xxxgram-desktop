@@ -6,8 +6,10 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_context_menu.h"
+#include "data/xxxgram_history.h"
 
 #include "api/api_attached_stickers.h"
+#include "api/xxxgram_copy.h"
 #include "api/api_editing.h"
 #include "api/api_global_privacy.h"
 #include "api/api_polls.h"
@@ -1776,7 +1778,54 @@ void FillContextMenuItems(
 	const auto hasWhoReactedItem = item
 		&& Api::WhoReactedExists(item, Api::WhoReactedList::All);
 
+	if (item && item->isScheduled() && item->hasFailed() && !hasSelection) {
+		const auto weak = base::make_weak(&item->history()->session());
+		result->addAction(u"Повторить"_q, [=] {
+			const auto session = weak.get();
+			const auto current = session ? session->data().message(itemId) : nullptr;
+			if (!current || !current->isScheduled() || !current->hasFailed()) {
+				return;
+			}
+			auto items = HistoryItemsList{ current };
+			if (const auto group = session->data().groups().find(current)) {
+				items.clear();
+				for (const auto part : group->items) {
+					if (part->isScheduled() && part->hasFailed()) {
+						items.push_back(part);
+					}
+				}
+			}
+			const auto oldIds = session->data().itemsToIds(items);
+			auto action = Api::SendAction(current->history());
+			action.replyTo = current->replyTo();
+			action.clearDraft = false;
+			Api::XxxgramRetryCopy(items, std::move(action), [=] {
+				if (const auto session = weak.get()) {
+					for (const auto id : oldIds) {
+						if (const auto old = session->data().message(id)) {
+							if (old->isScheduled() && old->hasFailed()) {
+								old->destroy();
+							}
+						}
+					}
+				}
+			});
+		}, &st::menuIconSend);
+	}
 	AddReplyToMessageAction(result, request, list);
+	if (item) {
+		const auto versions = item->history()->owner().xxxgramHistory().versions(
+			item->fullId());
+		if (!versions.isEmpty()) {
+			result->addAction(u"История изменений"_q, [=] {
+				list->controller()->show(Ui::MakeInformBox(
+					Ui::ConfirmBoxArgs{
+						.text = versions,
+						.title = u"Предыдущие версии"_q,
+					}));
+			}, &st::menuIconEdit);
+		}
+	}
 	if (item) {
 		const auto media = item->media();
 		const auto document = media ? media->document() : nullptr;

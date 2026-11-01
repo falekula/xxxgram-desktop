@@ -1009,6 +1009,7 @@ private:
 	base::Timer _saveCloudDraftTimer;
 	rpl::lifetime _threadFieldVisibleLifetime;
 
+	crl::time _xxxgramLastQueueToast = 0;
 	HistoryView::InfoTooltip _topToast;
 	HistoryView::AnchoredTooltip _hiddenSenderTooltip;
 	std::unique_ptr<HistoryView::StickerToast> _stickerToast;

@@ -561,6 +561,19 @@ PRIVATE
     core/application.h
     core/proxy_rotation_manager.cpp
     core/proxy_rotation_manager.h
+    core/xxxgram_proxy.cpp
+    core/xxxgram_proxy.h
+    mtproto/xxxgram_policy.h
+    api/xxxgram_policy.h
+    api/xxxgram_policy.cpp
+    api/xxxgram_copy.cpp
+    api/xxxgram_copy.h
+    history/view/controls/xxxgram_copy_progress.cpp
+    history/view/controls/xxxgram_copy_progress.h
+    data/xxxgram_history.h
+    data/xxxgram_history.cpp
+    settings/sections/settings_xxxgram.h
+    settings/sections/settings_xxxgram.cpp
     core/cached_webview_availability.h
     core/bank_card_click_handler.cpp
     core/bank_card_click_handler.h

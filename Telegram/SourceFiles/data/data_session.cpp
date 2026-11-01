@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_session.h"
+#include "data/xxxgram_history.h"
 
 #include "main/main_session.h"
 #include "main/main_session_settings.h"
@@ -1927,6 +1928,13 @@ void Session::setupUserIsContactViewer() {
 
 Session::~Session() = default;
 
+XxxgramHistory &Session::xxxgramHistory() {
+	if (!_xxxgramHistory) {
+		_xxxgramHistory = std::make_unique<XxxgramHistory>(this);
+	}
+	return *_xxxgramHistory;
+}
+
 template <typename Method>
 void Session::enumerateItemViews(
 		not_null<const HistoryItem*> item,
@@ -3037,6 +3045,10 @@ bool Session::updateExistingMessage(const MTPDmessage &data) {
 	if (!existing) {
 		return false;
 	}
+	if (xxxgramHistory().isDeleted(existing->fullId())
+		|| xxxgramHistory().ignoresExpiredMedia(existing->fullId(), data)) {
+		return existing->mainView() != nullptr;
+	}
 	existing->applySentMessage(data);
 	const auto result = (existing->mainView() != nullptr);
 	if (result) {
@@ -3059,6 +3071,11 @@ void Session::updateEditedMessage(const MTPMessage &data) {
 		Reactions::CheckUnknownForUnread(this, data);
 		return;
 	}
+	xxxgramHistory().observe(existing->history(), data);
+	if (xxxgramHistory().isDeleted(existing->fullId())
+		|| xxxgramHistory().ignoresExpiredMedia(existing->fullId(), data)) {
+		return;
+	}
 	if (existing->isLocalUpdateMedia() && data.type() == mtpc_message) {
 		updateExistingMessage(data.c_message());
 	}
@@ -3073,6 +3090,14 @@ void Session::updateEditedMessage(const MTPMessage &data) {
 void Session::processMessages(
 		const QVector<MTPMessage> &data,
 		NewMessageType type) {
+	for (const auto &message : data) {
+		if (message.type() == mtpc_message) {
+			const auto peer = peerFromMTP(message.c_message().vpeer_id());
+			if (const auto history = historyLoaded(peer)) {
+				xxxgramHistory().observe(history, message);
+			}
+		}
+	}
 	auto indices = base::flat_map<uint64, int>();
 	for (int i = 0, l = data.size(); i != l; ++i) {
 		const auto &message = data[i];
@@ -3367,6 +3392,9 @@ void Session::processNonChannelMessagesDeleted(const QVector<MTPint> &data) {
 	auto toDestroy = std::vector<not_null<HistoryItem*>>();
 	auto historiesToCheck = base::flat_set<not_null<History*>>();
 	for (const auto &messageId : data) {
+		if (xxxgramHistory().retainDeleted(messageId.v)) {
+			continue;
+		}
 		if (const auto item = nonChannelMessage(messageId.v)) {
 			const auto history = item->history();
 			toDestroy.push_back(item);

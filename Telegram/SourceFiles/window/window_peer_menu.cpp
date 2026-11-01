@@ -152,10 +152,15 @@ void ShareBotGame(
 		const QString &shortName) {
 	auto &histories = thread->owner().histories();
 	const auto history = thread->owningHistory();
+	auto action = Api::SendAction(thread);
+	Api::ApplyXxxgramSchedule(action);
 	const auto randomId = base::RandomValue<uint64>();
 	const auto replyTo = thread->topicRootId();
 	const auto topicRootId = replyTo;
 	auto flags = MTPmessages_SendMedia::Flags(0);
+	if (action.options.scheduled) {
+		flags |= MTPmessages_SendMedia::Flag::f_schedule_date;
+	}
 	if (replyTo) {
 		flags |= MTPmessages_SendMedia::Flag::f_reply_to;
 	}
@@ -178,7 +183,7 @@ void ShareBotGame(
 			MTP_long(randomId),
 			MTPReplyMarkup(),
 			MTPVector<MTPMessageEntity>(),
-			MTPint(), // schedule_date
+			Api::XxxgramSchedule(action.options),
 			MTPint(), // schedule_repeat_period
 			MTPInputPeer(), // send_as
 			MTPInputQuickReplyShortcut(),

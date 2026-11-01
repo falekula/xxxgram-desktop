@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_message.h"
+#include "data/xxxgram_history.h"
 
 #include "api/api_suggest_post.h"
 #include "api/api_transcribes.h"
@@ -1788,6 +1789,11 @@ int Message::marginBottom() const {
 }
 
 void Message::draw(Painter &p, const PaintContext &context) const {
+	const auto savedOpacity = p.opacity();
+	const auto restoreOpacity = gsl::finally([&] { p.setOpacity(savedOpacity); });
+	if (data()->history()->owner().xxxgramHistory().isDeleted(data()->fullId())) {
+		p.setOpacity(savedOpacity * 0.65);
+	}
 	auto g = countGeometry();
 	if (g.width() < 1) {
 		return;

@@ -202,6 +202,19 @@ public:
 	[[nodiscard]] auto extraFavoriteReactions() const
 	-> const std::vector<Data::ReactionId> &;
 
+	[[nodiscard]] int xxxgramSendDelaySeconds() const {
+		return _xxxgramSendDelaySeconds;
+	}
+	void setXxxgramSendDelaySeconds(int value);
+	[[nodiscard]] int xxxgramHistoryRecordLimit() const {
+		return _xxxgramHistoryRecordLimit;
+	}
+	void setXxxgramHistoryRecordLimit(int value);
+	[[nodiscard]] int xxxgramHistoryMegabytes() const {
+		return _xxxgramHistoryMegabytes;
+	}
+	void setXxxgramHistoryMegabytes(int value);
+
 private:
 	static constexpr auto kDefaultSupportChatsLimitSlice = 7 * 24 * 60 * 60;
 	static constexpr auto kPhotoEditorHintMaxShowsCount = 5;
@@ -256,6 +269,9 @@ private:
 	rpl::variable<bool> _phoneNumberHidden = false;
 
 	std::vector<Data::ReactionId> _extraFavoriteReactions;
+	int _xxxgramSendDelaySeconds = 15;
+	int _xxxgramHistoryRecordLimit = 500;
+	int _xxxgramHistoryMegabytes = 4;
 
 };
 

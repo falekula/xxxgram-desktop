@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "main/main_domain.h"
 
+#include <limits>
+
 #include "core/application.h"
 #include "core/core_settings.h"
 #include "core/shortcuts.h"
@@ -327,7 +329,7 @@ void Domain::scheduleUpdateUnreadBadge() {
 
 not_null<Main::Account*> Domain::add(MTP::Environment environment) {
 	Expects(started());
-	Expects(_accounts.size() < kPremiumMaxAccounts);
+	Expects(_accounts.size() < std::numeric_limits<int>::max());
 
 	static const auto cloneConfig = [](const MTP::Config &config) {
 		return std::make_unique<MTP::Config>(config);
@@ -612,13 +614,7 @@ void Domain::scheduleWriteAccounts() {
 }
 
 int Domain::maxAccounts() const {
-	const auto premiumCount = ranges::count_if(accounts(), [](
-			const Main::Domain::AccountWithIndex &d) {
-		return d.account->sessionExists()
-			&& (d.account->session().premium()
-				|| d.account->session().isTestMode());
-	});
-	return std::min(int(premiumCount) + kMaxAccounts, kPremiumMaxAccounts);
+	return std::numeric_limits<int>::max() - 1;
 }
 
 rpl::producer<int> Domain::maxAccountsChanges() const {

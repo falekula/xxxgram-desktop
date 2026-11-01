@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_histories.h"
+#include "data/xxxgram_history.h"
 
 #include "api/api_text_entities.h"
 #include "data/business/data_shortcut_messages.h"
@@ -329,6 +330,8 @@ void Histories::readInboxTill(
 		state.willReadWhen = 0;
 		sendReadRequests();
 		if (!stillUnread) {
+			history->setInboxReadTill(tillId);
+			history->updateChatListEntry();
 			return;
 		}
 	} else if (!state.willReadWhen) {
@@ -744,52 +747,13 @@ void Histories::sendReadRequests() {
 	}
 }
 
-void Histories::sendReadRequest(not_null<History*> history, State &state) {
+void Histories::sendReadRequest(not_null<History*>, State &state) {
 	Expects(state.willReadTill > state.sentReadTill);
 
-	const auto tillId = state.sentReadTill = base::take(state.willReadTill);
+	state.willReadTill = 0;
 	state.willReadWhen = 0;
-	state.sentReadDone = false;
-	DEBUG_LOG(("Reading: sending request now with till %1."
-		).arg(tillId.bare));
-	sendRequest(history, RequestType::ReadInbox, [=](Fn<void()> finish) {
-		DEBUG_LOG(("Reading: sending request invoked with till %1."
-			).arg(tillId.bare));
-		const auto finished = [=] {
-			const auto state = lookup(history);
-			Assert(state != nullptr);
-
-			if (state->sentReadTill == tillId) {
-				state->sentReadDone = true;
-				if (history->unreadCountRefreshNeeded(tillId)) {
-					requestDialogEntry(history);
-				} else {
-					state->sentReadTill = 0;
-				}
-			} else {
-				Assert(!state->sentReadTill || state->sentReadTill > tillId);
-			}
-			history->validateMonoAndForumUnread(tillId);
-			sendReadRequests();
-			finish();
-		};
-		if (const auto channel = history->peer->asChannel()) {
-			return session().api().request(MTPchannels_ReadHistory(
-				channel->inputChannel(),
-				MTP_int(tillId)
-			)).done(finished).fail(finished).send();
-		} else {
-			return session().api().request(MTPmessages_ReadHistory(
-				history->peer->input(),
-				MTP_int(tillId)
-			)).done([=](const MTPmessages_AffectedMessages &result) {
-				session().api().applyAffectedMessages(history->peer, result);
-				finished();
-			}).fail([=] {
-				finished();
-			}).send();
-		}
-	});
+	state.sentReadTill = 0;
+	state.sentReadDone = true;
 }
 
 void Histories::checkEmptyState(not_null<History*> history) {
@@ -824,6 +788,9 @@ void Histories::deleteMessages(
 		not_null<History*> history,
 		const QVector<MTPint> &ids,
 		bool revoke) {
+	for (const auto &id : ids) {
+		_owner->xxxgramHistory().forget(FullMsgId(history->peer->id, id.v));
+	}
 	sendRequest(history, RequestType::Delete, [=](Fn<void()> finish) {
 		const auto done = [=](const MTPmessages_AffectedMessages &result) {
 			session().api().applyAffectedMessages(history->peer, result);
@@ -972,6 +939,9 @@ void Histories::deleteMessagesByDates(
 }
 
 void Histories::deleteMessages(const MessageIdsList &ids, bool revoke) {
+	for (const auto &id : ids) {
+		_owner->xxxgramHistory().forget(id);
+	}
 	auto remove = std::vector<not_null<HistoryItem*>>();
 	remove.reserve(ids.size());
 	base::flat_map<not_null<History*>, QVector<MTPint>> idsByPeer;
@@ -1179,14 +1149,17 @@ int Histories::sendPreparedMessage(
 	};
 	realReplyTo.messageId = topicReplyToId(replyTo.messageId);
 	realReplyTo.topicRootId = topicReplyToId(replyTo.topicRootId);
-	return v::match(message(history, realReplyTo), [&](const auto &request) {
-		const auto type = RequestType::Send;
-		return sendRequest(history, type, [=](Fn<void()> finish) {
+	return sendRequest(history, RequestType::Send, [=](Fn<void()> finish) {
+		const auto prepared = message(history, realReplyTo);
+		return v::match(prepared.request, [&](const auto &request) {
 			const auto session = &_owner->session();
 			const auto api = &session->api();
-			history->sendRequestId = api->request(
-				base::duplicate(request)
-			).done([=](
+			auto builder = api->request(base::duplicate(request));
+			if (prepared.deadline) {
+				[[maybe_unused]] const auto &guarded = builder
+					.handleAllErrors().xxxgramDeadline(prepared.deadline);
+			}
+			history->sendRequestId = builder.done([=](
 					const MTPUpdates &result,
 					const MTP::Response &response) {
 				api->applyUpdates(result, randomId);

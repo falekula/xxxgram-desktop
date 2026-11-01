@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "api/api_polls.h"
 
+#include "api/xxxgram_policy.h"
 #include "api/api_common.h"
 #include "api/api_statistics_data_deserialize.h"
 #include "api/api_text_entities.h"
@@ -223,6 +224,7 @@ void Polls::create(
 		SendAction action,
 		Fn<void()> done,
 		Fn<void(bool fileReferenceExpired)> fail) {
+	ApplyXxxgramSchedule(action, text.text);
 	StripEphemeralReply(_session, action.replyTo);
 	_session->api().sendAction(action);
 
@@ -295,7 +297,7 @@ void Polls::create(
 			MTP_long(randomId),
 			MTPReplyMarkup(),
 			sentEntities,
-			MTP_int(action.options.scheduled),
+			Api::XxxgramSchedule(action.options),
 			MTP_int(action.options.scheduleRepeatPeriod),
 			(sendAs ? sendAs->input() : MTP_inputPeerEmpty()),
 			Data::ShortcutIdToMTP(_session, action.options.shortcutId),

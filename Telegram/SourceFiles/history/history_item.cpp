@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/history_item.h"
+#include "data/xxxgram_history.h"
 
 #include "api/api_premium.h"
 #include "api/api_sensitive_content.h"
@@ -110,6 +111,9 @@ template <typename T>
 		not_null<HistoryItem*> item,
 		const MTPMessageMedia &media) {
 	if (item->out() || item->hasUnreadMediaFlag()) {
+		return false;
+	}
+	if (Data::XxxgramHistory::Eligible(item)) {
 		return false;
 	}
 	return media.match([](const MTPDmessageMediaPhoto &data) {
@@ -405,9 +409,11 @@ std::unique_ptr<Data::Media> HistoryItem::CreateMedia(
 				item,
 				item->history()->owner().processPhoto(photo),
 				Args{
-					.ttlSeconds = media.vttl_seconds().value_or_empty(),
+					.ttlSeconds = Data::XxxgramHistory::Eligible(item)
+						? 0 : media.vttl_seconds().value_or_empty(),
 					.spoiler = (media.is_spoiler()
-						|| media.vttl_seconds().has_value()),
+						|| (media.vttl_seconds().has_value()
+							&& !Data::XxxgramHistory::Eligible(item))),
 				});
 		}, [](const MTPDphotoEmpty &) -> Result {
 			return nullptr;
@@ -426,7 +432,8 @@ std::unique_ptr<Data::Media> HistoryItem::CreateMedia(
 			const auto data = owner->processDocument(document, list);
 			using Args = Data::MediaFile::Args;
 			return std::make_unique<Data::MediaFile>(item, data, Args{
-				.ttlSeconds = media.vttl_seconds().value_or_empty(),
+				.ttlSeconds = Data::XxxgramHistory::Eligible(item)
+					? 0 : media.vttl_seconds().value_or_empty(),
 				.videoCover = (media.vvideo_cover()
 					? owner->processPhoto(*media.vvideo_cover()).get()
 					: nullptr),
@@ -435,6 +442,7 @@ std::unique_ptr<Data::Media> HistoryItem::CreateMedia(
 				.skipPremiumEffect = media.is_nopremium(),
 				.spoiler = (media.is_spoiler()
 					|| (media.vttl_seconds().has_value()
+						&& !Data::XxxgramHistory::Eligible(item)
 						&& media.is_video())),
 			});
 		}, [](const MTPDdocumentEmpty &) -> Result {
@@ -3032,6 +3040,10 @@ void HistoryItem::contributeToSlowmode(TimeId realDate) {
 }
 
 void HistoryItem::clearMediaAsExpired() {
+	if (Data::XxxgramHistory::Eligible(this)) {
+		unarmMediaDestroy();
+		return;
+	}
 	const auto media = this->media();
 	if (!media || !media->ttlSeconds()) {
 		return;
@@ -3430,15 +3442,29 @@ bool HistoryItem::canStopPoll() const {
 	return canBeEdited() && isRegular();
 }
 
+bool HistoryItem::xxxgramNeedsCopy() const {
+	const auto peer = history()->peer;
+	if (const auto channel = peer->asChannel()) {
+		return (_flags & MessageFlag::NoForwards)
+			|| !channel->allowsForwarding();
+	} else if (const auto chat = peer->asChat()) {
+		return (_flags & MessageFlag::NoForwards)
+			|| !chat->allowsForwarding();
+	}
+	return false;
+}
+
 bool HistoryItem::forbidsForward() const {
-	return (_flags & MessageFlag::NoForwards);
+	return (_flags & MessageFlag::NoForwards)
+		&& !history()->peer->asChannel()
+		&& !history()->peer->asChat();
 }
 
 bool HistoryItem::forbidsSaving() const {
 	if (forbidsForward()) {
 		return true;
 	} else if (_media && _media->ttlSeconds()) {
-		return true;
+		return !Data::XxxgramHistory::Eligible(this);
 	} else if (const auto invoice = _media ? _media->invoice() : nullptr) {
 		return HasExtendedMedia(*invoice);
 	}
@@ -4429,6 +4455,9 @@ bool HistoryItem::canUpdateDate() const {
 }
 
 void HistoryItem::applyTTL(TimeId destroyAt) {
+	if (Data::XxxgramHistory::Eligible(this)) {
+		destroyAt = 0;
+	}
 	const auto previousDestroyAt = std::exchange(_ttlDestroyAt, destroyAt);
 	if (previousDestroyAt) {
 		_history->owner().unregisterMessageTTL(previousDestroyAt, this);

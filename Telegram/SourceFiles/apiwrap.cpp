@@ -6,6 +6,9 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "apiwrap.h"
+#include "api/xxxgram_policy.h"
+#include "api/xxxgram_copy.h"
+#include "data/xxxgram_history.h"
 
 #include "api/api_authorizations.h"
 #include "api/api_attached_stickers.h"
@@ -534,6 +537,8 @@ void ApiWrap::sendMessageFail(
 			Ui::MakeInformBox(
 				PeerFloodErrorText(&session(), PeerFloodType::Send)),
 			Ui::LayerOption::CloseOther);
+	} else if (show && error == u"CLIENT_XXXGRAM_SCHEDULE_EXPIRED"_q) {
+		show->showToast(u"Связь задержалась. Повторите отправку."_q);
 	} else if (show && error == u"USER_BANNED_IN_CHANNEL"_q) {
 		const auto link = tr::link(
 			tr::lng_cant_more_info(tr::now),
@@ -2216,6 +2221,7 @@ void ApiWrap::deleteHistory(
 		not_null<PeerData*> peer,
 		bool justClear,
 		bool revoke) {
+	_session->data().xxxgramHistory().forgetPeer(peer->id);
 	deleteHistory(peer, justClear, revoke, 0);
 }
 
@@ -3899,7 +3905,16 @@ void ApiWrap::forwardMessages(
 		Data::ResolvedForwardDraft &&draft,
 		SendAction action,
 		FnMut<void()> &&successCallback) {
+	Api::ApplyXxxgramSchedule(action);
 	Expects(!draft.items.empty());
+	if (Api::XxxgramCopyIfNeeded(
+		draft.items,
+		{ action },
+		draft.options,
+		{},
+		std::move(successCallback))) {
+		return;
+	}
 
 	auto &histories = _session->data().histories();
 
@@ -4047,7 +4062,10 @@ void ApiWrap::forwardMessages(
 			} else {
 				flags &= ~SendFlag::f_top_msg_id;
 			}
-			return MTPmessages_ForwardMessages(
+			const auto deadline = action.options.xxxgramAutomaticSchedule
+				? Api::XxxgramAutomaticDate(history)
+				: TimeId(0);
+			return { MTPmessages_ForwardMessages(
 				MTP_flags(flags),
 				forwardFrom->input(),
 				MTP_vector<MTPint>(ids),
@@ -4060,7 +4078,7 @@ void ApiWrap::forwardMessages(
 					? MTP_inputReplyToMonoForum(
 						monoforumPeer->input())
 					: MTPInputReplyTo()),
-				MTP_int(action.options.scheduled),
+				MTP_int(deadline ? deadline : action.options.scheduled),
 				MTP_int(action.options.scheduleRepeatPeriod),
 				(sendAs
 					? sendAs->input()
@@ -4071,7 +4089,7 @@ void ApiWrap::forwardMessages(
 				MTP_long(action.options.effectId),
 				MTPint(),
 				MTP_long(starsPaid),
-				Api::SuggestToMTP(action.options.suggest));
+				Api::SuggestToMTP(action.options.suggest)), deadline };
 		};
 		histories.sendPreparedMessage(
 			history,
@@ -4202,8 +4220,10 @@ void ApiWrap::sendSharedContact(
 		const QString &firstName,
 		const QString &lastName,
 		UserId userId,
-		const SendAction &action,
+		const SendAction &originalAction,
 		Fn<void(bool)> done) {
+	auto action = originalAction;
+	Api::ApplyXxxgramSchedule(action);
 	sendAction(action);
 
 	const auto history = action.history;
@@ -4261,7 +4281,9 @@ void ApiWrap::sendVoiceMessage(
 		VoiceWaveform waveform,
 		crl::time duration,
 		bool video,
-		const SendAction &action) {
+		const SendAction &originalAction) {
+	auto action = originalAction;
+	Api::ApplyXxxgramSchedule(action);
 	const auto caption = TextWithTags();
 	const auto to = FileLoadTaskOptions(action);
 	_fileLoader->addTask(
@@ -4339,6 +4361,9 @@ void ApiWrap::sendFiles(
 		SendMediaType type,
 		std::shared_ptr<SendingAlbum> album,
 		SendAction action) {
+	Api::ApplyXxxgramSchedule(action, list.files.empty()
+		? QString()
+		: list.files.front().caption.text);
 	const auto &ephemeral = _session->ephemeralMessages();
 	if (album && !ephemeral.isEphemeralBotReply(action.replyTo.messageId)) {
 		const auto peer = action.history->peer;
@@ -4507,6 +4532,7 @@ void ApiWrap::sendRichMessage(
 		std::shared_ptr<const Iv::RichPage> page,
 		const MTPInputRichMessage &richMessage,
 		SendAction action) {
+	Api::ApplyXxxgramSchedule(action, Iv::FlattenRichPageSummary(page).text);
 	Expects(page != nullptr);
 
 	const auto history = action.history;
@@ -4721,7 +4747,7 @@ void ApiWrap::sendRichMessage(
 				MTP_long(randomId),
 				MTPReplyMarkup(),
 				MTPVector<MTPMessageEntity>(),
-				MTP_int(action.options.scheduled),
+				Api::XxxgramSchedule(action.options),
 				MTP_int(action.options.scheduleRepeatPeriod),
 				(action.options.sendAs
 					? action.options.sendAs->input()
@@ -4762,6 +4788,7 @@ void ApiWrap::sendRichMessage(
 void ApiWrap::sendMessage(
 		MessageToSend &&message,
 		std::optional<MsgId> localMessageId) {
+	Api::ApplyXxxgramSchedule(message.action, message.textWithTags.text);
 	const auto history = message.action.history;
 	const auto peer = history->peer;
 	const auto &textWithTags = message.textWithTags;
@@ -5032,7 +5059,7 @@ void ApiWrap::sendMessage(
 					MTP_long(randomId),
 					MTPReplyMarkup(),
 					sentEntities,
-					MTP_int(action.options.scheduled),
+					Api::XxxgramSchedule(action.options),
 					MTP_int(action.options.scheduleRepeatPeriod),
 					(sendAs ? sendAs->input() : MTP_inputPeerEmpty()),
 					mtpShortcut,
@@ -5053,7 +5080,7 @@ void ApiWrap::sendMessage(
 					MTP_long(randomId),
 					MTPReplyMarkup(),
 					sentEntities,
-					MTP_int(action.options.scheduled),
+					Api::XxxgramSchedule(action.options),
 					MTP_int(action.options.scheduleRepeatPeriod),
 					(sendAs ? sendAs->input() : MTP_inputPeerEmpty()),
 					mtpShortcut,
@@ -5120,6 +5147,7 @@ void ApiWrap::sendInlineResult(
 		SendAction action,
 		std::optional<MsgId> localMessageId,
 		Fn<void(bool)> done) {
+	Api::ApplyXxxgramSchedule(action);
 	StripEphemeralReply(_session, action.replyTo);
 	sendAction(action);
 
@@ -5202,7 +5230,7 @@ void ApiWrap::sendInlineResult(
 			MTP_long(randomId),
 			MTP_long(data->getQueryId()),
 			MTP_string(data->getId()),
-			MTP_int(action.options.scheduled),
+			Api::XxxgramSchedule(action.options),
 			(sendAs ? sendAs->input() : MTP_inputPeerEmpty()),
 			Data::ShortcutIdToMTP(_session, action.options.shortcutId),
 			MTP_long(starsPaid)
@@ -5425,7 +5453,7 @@ void ApiWrap::sendMediaWithRandomId(
 			MTP_long(randomId),
 			MTPReplyMarkup(),
 			sentEntities,
-			MTP_int(options.scheduled),
+			Api::XxxgramSchedule(options),
 			MTP_int(options.scheduleRepeatPeriod),
 			(options.sendAs ? options.sendAs->input() : MTP_inputPeerEmpty()),
 			Data::ShortcutIdToMTP(_session, options.shortcutId),
@@ -5513,7 +5541,7 @@ void ApiWrap::sendMultiPaidMedia(
 			MTP_long(randomId),
 			MTPReplyMarkup(),
 			sentEntities,
-			MTP_int(options.scheduled),
+			Api::XxxgramSchedule(options),
 			MTP_int(options.scheduleRepeatPeriod),
 			(options.sendAs ? options.sendAs->input() : MTP_inputPeerEmpty()),
 			Data::ShortcutIdToMTP(_session, options.shortcutId),
@@ -5669,7 +5697,7 @@ void ApiWrap::sendAlbumIfReady(not_null<SendingAlbum*> album) {
 			peer->input(),
 			Data::Histories::ReplyToPlaceholder(),
 			MTP_vector<MTPInputSingleMedia>(medias),
-			MTP_int(album->options.scheduled),
+			Api::XxxgramSchedule(album->options),
 			//MTP_int(album->options.scheduleRepeatPeriod),
 			(sendAs ? sendAs->input() : MTP_inputPeerEmpty()),
 			Data::ShortcutIdToMTP(_session, album->options.shortcutId),

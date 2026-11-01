@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "api/api_sending.h"
 
+#include "api/xxxgram_policy.h"
 #include "api/api_text_entities.h"
 #include "base/random.h"
 #include "base/unixtime.h"
@@ -69,6 +70,7 @@ void InnerFillMessagePostFlags(
 }
 
 void SendSimpleMedia(SendAction action, MTPInputMedia inputMedia) {
+	ApplyXxxgramSchedule(action);
 	const auto history = action.history;
 	const auto peer = history->peer;
 	const auto session = &history->session();
@@ -163,7 +165,7 @@ void SendSimpleMedia(SendAction action, MTPInputMedia inputMedia) {
 			MTP_long(randomId),
 			MTPReplyMarkup(),
 			MTPvector<MTPMessageEntity>(),
-			MTP_int(action.options.scheduled),
+			Api::XxxgramSchedule(action.options),
 			MTP_int(action.options.scheduleRepeatPeriod),
 			(sendAs ? sendAs->input() : MTP_inputPeerEmpty()),
 			Data::ShortcutIdToMTP(session, action.options.shortcutId),
@@ -185,6 +187,7 @@ void SendExistingMedia(
 		Fn<MTPInputMedia()> inputMedia,
 		Data::FileOrigin origin,
 		std::optional<MsgId> localMessageId) {
+	ApplyXxxgramSchedule(message.action, message.textWithTags.text);
 	const auto history = message.action.history;
 	const auto peer = history->peer;
 	const auto session = &history->session();
@@ -332,7 +335,7 @@ void SendExistingMedia(
 				MTP_long(randomId),
 				MTPReplyMarkup(),
 				sentEntities,
-				MTP_int(action.options.scheduled),
+				Api::XxxgramSchedule(action.options),
 				MTP_int(action.options.scheduleRepeatPeriod),
 				(sendAs ? sendAs->input() : MTP_inputPeerEmpty()),
 				Data::ShortcutIdToMTP(session, action.options.shortcutId),
@@ -627,7 +630,7 @@ void SendMusicSelectionBatch(
 					MTP_long(item.randomId),
 					MTPReplyMarkup(),
 					entities,
-					MTP_int(action.options.scheduled),
+					Api::XxxgramSchedule(action.options),
 					MTP_int(action.options.scheduleRepeatPeriod),
 					(sendAs ? sendAs->input() : MTP_inputPeerEmpty()),
 					Data::ShortcutIdToMTP(session, action.options.shortcutId),
@@ -681,7 +684,7 @@ void SendMusicSelectionBatch(
 				peer->input(),
 				Data::Histories::ReplyToPlaceholder(),
 				MTP_vector<MTPInputSingleMedia>(std::move(media)),
-				MTP_int(action.options.scheduled),
+				Api::XxxgramSchedule(action.options),
 				(sendAs ? sendAs->input() : MTP_inputPeerEmpty()),
 				Data::ShortcutIdToMTP(session, action.options.shortcutId),
 				MTP_long(action.options.effectId),
@@ -728,6 +731,7 @@ void SendExistingDocument(
 void SendMusicSelection(
 		MessageToSend &&message,
 		std::vector<MusicSelectionItem> items) {
+	ApplyXxxgramSchedule(message.action, message.textWithTags.text);
 	if (items.empty()) {
 		return;
 	}
@@ -932,7 +936,7 @@ bool SendDice(MessageToSend &message) {
 			MTP_long(randomId),
 			MTPReplyMarkup(),
 			MTP_vector<MTPMessageEntity>(),
-			MTP_int(action.options.scheduled),
+			Api::XxxgramSchedule(action.options),
 			MTP_int(action.options.scheduleRepeatPeriod),
 			(sendAs ? sendAs->input() : MTP_inputPeerEmpty()),
 			Data::ShortcutIdToMTP(session, action.options.shortcutId),
@@ -1295,6 +1299,16 @@ void AddConfirmedLocalPlaceholder(const ConfirmedLocalFile &local) {
 void SendConfirmedFile(
 		not_null<Main::Session*> session,
 		const std::shared_ptr<FilePrepareResult> &file) {
+	const auto sendHistory = session->data().history(file->to.peer);
+	auto action = SendAction(sendHistory, file->to.options);
+	action.replyTo = file->to.replyTo;
+	action.replaceMediaOf = file->to.replaceMediaOf;
+	ApplyXxxgramSchedule(action, file->caption.text);
+	file->to.options = action.options;
+	if (const auto album = file->album.lock()) {
+		album->options = action.options;
+	}
+
 	const auto welcomeTemplate = file->to.options.welcomeTemplate;
 	if (welcomeTemplate && file->to.replaceMediaOf) {
 		return;

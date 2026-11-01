@@ -759,7 +759,13 @@ ChatWidget::ChatWidget(
 					cancelledSuggest = cancelSuggestPost();
 				}
 			}
-			if (action.options.scheduled) {
+			if (action.options.xxxgramAutomaticSchedule) {
+				if (_xxxgramLastQueueToast + 1500 < crl::now()) {
+					_xxxgramLastQueueToast = crl::now();
+					controller->showToast(u"В очереди · задержка %1 с"_q.arg(
+						session().settings().xxxgramSendDelaySeconds()));
+				}
+			} else if (action.options.scheduled) {
 				if (_topic) {
 					crl::on_main(this, [=, t = _topic] {
 						controller->showSection(

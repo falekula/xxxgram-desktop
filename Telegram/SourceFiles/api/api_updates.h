@@ -102,6 +102,7 @@ private:
 		const MTPupdates_ChannelDifference &result);
 
 	void updateOnline(crl::time lastNonIdleTime, bool gotOtherOffline);
+	void requestXxxgramOffline();
 	void sendPing();
 	void getDifferenceByPts();
 	void getDifferenceAfterFail();
@@ -176,6 +177,7 @@ private:
 	int32 _updatesSeq = 0;
 	base::Timer _noUpdatesTimer;
 	base::Timer _onlineTimer;
+	base::Timer _xxxgramOfflineTimer;
 
 	PtsWaiter _ptsWaiter;
 
@@ -214,6 +216,7 @@ private:
 	mtpRequestId _onlineRequest = 0;
 	base::Timer _idleFinishTimer;
 	crl::time _lastSetOnline = 0;
+	crl::time _xxxgramLastOfflineRequest = 0;
 	bool _lastWasOnline = false;
 	rpl::variable<bool> _isIdle = false;
 

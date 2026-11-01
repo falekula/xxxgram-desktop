@@ -1164,6 +1164,13 @@ HistoryWidget::HistoryWidget(
 		const auto lastKeyboardUsed = lastForceReplyReplied(
 			action.replyTo.messageId);
 		if (action.replaceMediaOf) {
+		} else if (action.options.xxxgramAutomaticSchedule) {
+			cancelReplyOrSuggest(lastKeyboardUsed);
+			if (_xxxgramLastQueueToast + 1500 < crl::now()) {
+				_xxxgramLastQueueToast = crl::now();
+				controller->showToast(u"В очереди · задержка %1 с"_q.arg(
+					session().settings().xxxgramSendDelaySeconds()));
+			}
 		} else if (action.options.scheduled) {
 			cancelReplyOrSuggest(lastKeyboardUsed);
 			crl::on_main(this, [=, history = action.history] {

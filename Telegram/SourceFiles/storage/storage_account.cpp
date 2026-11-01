@@ -4005,6 +4005,19 @@ void Account::readPrefs() {
 
 // Define your own pref types in the similar way.
 template <>
+std::optional<QByteArray> Account::readPrefImpl<QByteArray>(
+		std::string_view key) {
+	return readPrefGeneric(key);
+}
+
+template <>
+void Account::writePrefImpl<QByteArray>(
+		std::string_view key,
+		QByteArray value) {
+	writePrefGeneric(key, std::move(value));
+}
+
+template <>
 std::optional<bool> Account::readPrefImpl<bool>(std::string_view key) {
 	if (const auto data = readPrefGeneric(key)) {
 		return !data->isEmpty();

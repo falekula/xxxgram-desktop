@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
+#include "api/xxxgram_policy.h"
 #include "base/timer.h"
 
 class History;
@@ -115,12 +116,22 @@ public:
 		Fn<mtpRequestId(Fn<void()> finish)> generator);
 	void cancelRequest(int id);
 
-	using PreparedMessage = std::variant<
+	using PreparedRequest = std::variant<
 		MTPmessages_SendMessage,
 		MTPmessages_SendMedia,
 		MTPmessages_SendInlineBotResult,
 		MTPmessages_SendMultiMedia,
 		MTPmessages_ForwardMessages>;
+	struct PreparedMessage {
+		template <typename Request>
+		PreparedMessage(Request request, TimeId deadline = 0)
+		: request(std::move(request))
+		, deadline(deadline) {
+		}
+
+		PreparedRequest request;
+		TimeId deadline = 0;
+	};
 	int sendPreparedMessage(
 		not_null<History*> history,
 		FullReplyTo replyTo,
@@ -135,8 +146,15 @@ public:
 	static auto PrepareMessage(const Args &...args)
 	-> Fn<Histories::PreparedMessage(not_null<History*>, FullReplyTo)> {
 		return [=](not_null<History*> history, FullReplyTo replyTo)
-		-> RequestType {
-			return { ReplaceReplyIds(history, args, replyTo)... };
+		-> PreparedMessage {
+			const auto automatic = (IsAutomaticSchedule(args) || ...);
+			const auto deadline = automatic
+				? Api::XxxgramAutomaticDate(history)
+				: TimeId(0);
+			return {
+				RequestType{ ReplaceReplyIds(history, args, replyTo, deadline)... },
+				deadline,
+			};
 		};
 	}
 
@@ -188,12 +206,24 @@ private:
 	};
 
 	template <typename Arg>
+	static bool IsAutomaticSchedule(const Arg &arg) {
+		if constexpr (std::is_same_v<Arg, Api::XxxgramScheduleDate>) {
+			return arg.automatic;
+		} else {
+			return false;
+		}
+	}
+
+	template <typename Arg>
 	static auto ReplaceReplyIds(
 			not_null<History*> history,
 			Arg arg,
-			FullReplyTo replyTo) {
+			FullReplyTo replyTo,
+			TimeId deadline) {
 		if constexpr (std::is_same_v<Arg, ReplyToPlaceholder>) {
 			return ReplyToForMTP(history, replyTo);
+		} else if constexpr (std::is_same_v<Arg, Api::XxxgramScheduleDate>) {
+			return MTP_int(arg.automatic ? deadline : arg.value);
 		} else {
 			return arg;
 		}

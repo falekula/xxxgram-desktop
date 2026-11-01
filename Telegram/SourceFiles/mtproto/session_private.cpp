@@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mtproto/details/mtproto_dump_to_text.h"
 #include "mtproto/details/mtproto_rsa_public_key.h"
 #include "mtproto/session.h"
+#include "mtproto/xxxgram_policy.h"
 #include "mtproto/mtproto_response.h"
 #include "mtproto/mtproto_dc_options.h"
 #include "mtproto/connection_abstract.h"
@@ -726,6 +727,26 @@ void SessionPrivate::tryToSend() {
 			: toSendDummy;
 		if (!sendAll) {
 			locker1.unlock();
+		}
+
+		for (auto i = toSend.begin(); i != toSend.end();) {
+			if (!Xxxgram::ScheduleExpired(
+					i->second->xxxgramScheduleDeadline,
+					base::unixtime::now())) {
+				++i;
+				continue;
+			}
+			auto response = Response{ .requestId = i->first };
+			MTPRpcError(Error::MTPLocal(
+				"XXXGRAM_SCHEDULE_EXPIRED",
+				"Delivery delayed by connection. Retry to schedule again."
+			)).write(response.reply);
+			{
+				QWriteLocker received(_sessionData->haveReceivedMutex());
+				_sessionData->haveReceivedMessages().push_back(std::move(response));
+			}
+			i = toSend.erase(i);
+			_sessionData->queueTryToReceive();
 		}
 
 		auto totalSending = int(toSend.size());

@@ -626,7 +626,9 @@ Domain::StartModernResult Domain::startModern(
 	LOG(("App Info: reading encrypted info..."));
 	auto count = qint32();
 	info.stream >> count;
-	if (count <= 0 || count > Main::Domain::kPremiumMaxAccounts) {
+	if (count <= 0
+		|| info.stream.status() != QDataStream::Ok
+		|| count > info.stream.device()->bytesAvailable() / sizeof(qint32)) {
 		LOG(("App Error: bad accounts count: %1").arg(count));
 		return StartModernResult::Failed;
 	}
@@ -640,7 +642,8 @@ Domain::StartModernResult Domain::startModern(
 		auto index = qint32();
 		info.stream >> index;
 		if (index >= 0
-			&& index < Main::Domain::kPremiumMaxAccounts
+			&& index < std::numeric_limits<int>::max() - 1
+			&& info.stream.status() == QDataStream::Ok
 			&& tried.emplace(index).second) {
 			auto account = std::make_unique<Main::Account>(
 				_owner,

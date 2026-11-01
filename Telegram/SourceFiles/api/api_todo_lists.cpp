@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "api/api_todo_lists.h"
 
+#include "api/xxxgram_policy.h"
 #include "api/api_editing.h"
 #include "apiwrap.h"
 #include "base/random.h"
@@ -38,6 +39,7 @@ void TodoLists::create(
 		SendAction action,
 		Fn<void()> done,
 		Fn<void(QString)> fail) {
+	ApplyXxxgramSchedule(action);
 	StripEphemeralReply(_session, action.replyTo);
 	_session->api().sendAction(action);
 
@@ -103,7 +105,7 @@ void TodoLists::create(
 			MTP_long(randomId),
 			MTPReplyMarkup(),
 			MTPVector<MTPMessageEntity>(),
-			MTP_int(action.options.scheduled),
+			Api::XxxgramSchedule(action.options),
 			MTP_int(action.options.scheduleRepeatPeriod),
 			(sendAs ? sendAs->input() : MTP_inputPeerEmpty()),
 			Data::ShortcutIdToMTP(_session, action.options.shortcutId),
