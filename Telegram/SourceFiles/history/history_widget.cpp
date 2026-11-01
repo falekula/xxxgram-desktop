@@ -126,6 +126,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/view/controls/history_view_ttl_button.h"
 #include "history/view/controls/history_view_voice_record_bar.h"
 #include "history/view/controls/history_view_webpage_processor.h"
+#include "history/view/controls/xxxgram_queue_button.h"
 #include "history/view/reactions/history_view_reactions_button.h"
 #include "history/view/history_view_chat_section.h"
 #include "history/view/history_view_cursor_state.h"
@@ -4060,7 +4061,9 @@ void HistoryWidget::refreshScheduledToggle() {
 		&& _canSendMessages
 		&& (session().scheduledMessages().count(_history) > 0);
 	if (!_scheduled && has) {
-		_scheduled.create(this, st::historyScheduledToggle);
+		_scheduled = object_ptr<HistoryView::XxxgramQueueButton>(this, [=] {
+			return std::pair<History*, MsgId>{ _history, 0 };
+		});
 		_scheduled->setAccessibleName(tr::lng_scheduled_messages(tr::now));
 		_scheduled->show();
 		_scheduled->addClickHandler([=] {

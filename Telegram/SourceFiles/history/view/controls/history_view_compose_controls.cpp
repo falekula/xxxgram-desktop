@@ -93,6 +93,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/view/controls/history_view_ttl_button.h"
 #include "history/view/controls/history_view_voice_record_bar.h"
 #include "history/view/controls/history_view_webpage_processor.h"
+#include "history/view/controls/xxxgram_queue_button.h"
 #include "history/view/history_view_reply.h"
 #include "history/view/history_view_schedule_box.h"
 #include "history/view/history_view_webpage_preview.h"
@@ -1313,13 +1314,14 @@ ComposeControls::ComposeControls(
 		) | rpl::start_to_stream(_stickerOrEmojiChosen, _wrap->lifetime());
 	}
 	if (descriptor.scheduledToggleValue) {
+		const auto scheduledContext = std::move(descriptor.scheduledContext);
 		std::move(
 			descriptor.scheduledToggleValue
 		) | rpl::on_next([=](bool hasScheduled) {
 			if (!_scheduled && hasScheduled) {
-				_scheduled = base::make_unique_q<Ui::IconButton>(
+				_scheduled = base::make_unique_q<XxxgramQueueButton>(
 					_wrap.get(),
-					st::historyScheduledToggle);
+					scheduledContext);
 				_scheduled->show();
 				_scheduled->clicks(
 				) | rpl::filter(

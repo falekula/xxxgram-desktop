@@ -399,6 +399,11 @@ ChatWidget::ChatWidget(
 			) | rpl::map([=] {
 				return session().scheduledMessages().count(_history) > 0;
 			}) | rpl::type_erased,
+		.scheduledContext = [=] {
+			return std::pair<History*, MsgId>{
+				_history, _topic ? _topic->rootId() : MsgId(0),
+			};
+		},
 		.currentSuggest = [=] { return suggestOptions(); },
 		.processShortcut = [=](QString shortcut) {
 			const auto messages = &_peer->owner().shortcutMessages();

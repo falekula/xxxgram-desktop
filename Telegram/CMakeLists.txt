@@ -570,6 +570,8 @@ PRIVATE
     api/xxxgram_copy.h
     history/view/controls/xxxgram_copy_progress.cpp
     history/view/controls/xxxgram_copy_progress.h
+    history/view/controls/xxxgram_queue_button.cpp
+    history/view/controls/xxxgram_queue_button.h
     data/xxxgram_history.h
     data/xxxgram_history.cpp
     settings/sections/settings_xxxgram.h

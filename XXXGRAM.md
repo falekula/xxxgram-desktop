@@ -16,7 +16,8 @@ are disabled so they cannot silently replace this build.
   reveal presence. A historical last-seen timestamp cannot be frozen by a client.
 - Normal outgoing messages wait 15 seconds. Settings → xxxgram allows 15–300 seconds.
   Explicit scheduled dates remain unchanged. A stale automatic request fails
-  instead of silently becoming an immediate send.
+  instead of silently becoming an immediate send. The queue button beside the
+  composer shows a server-confirmed countdown, upload state or delivery error.
 - Local history covers human private chats. Defaults: 500 messages, 4 MB;
   configurable up to 10,000 messages and 64 MB per account. Old records are evicted
   at either limit. Messages never received by this client cannot be recovered.
