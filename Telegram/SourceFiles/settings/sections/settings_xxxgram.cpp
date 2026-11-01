@@ -33,7 +33,7 @@ namespace {
 
 void ChooseIcon(not_null<Ui::GenericBox*> box) {
 	FileDialog::GetOpenPath(
-		box,
+		box.get(),
 		u"Иконка xxxgram"_q,
 		u"Изображения (*.png *.jpg *.jpeg *.webp)"_q,
 		crl::guard(box, [=](FileDialog::OpenResult &&result) {
