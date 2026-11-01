@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/history_inner_widget.h"
+#include "data/xxxgram_history.h"
 
 #include "api/api_polls.h"
 #include "chat_helpers/stickers_emoji_pack.h"
@@ -3105,6 +3106,15 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 			_menu->addAction(tr::lng_context_cancel_download(tr::now), [=] {
 				cancelContextDownload(document);
 			}, &st::menuIconCancel);
+			if (item && (document->isVideoFile() || document->isVideoMessage())
+				&& !hasCopyMediaRestriction(item)
+				&& !HistoryView::ItemHasTtl(item)) {
+				HistoryView::AddSaveDocumentAction(
+					Ui::Menu::CreateAddActionCallback(_menu),
+					item,
+					document,
+					controller);
+			}
 			return;
 		}
 		const auto itemId = item ? item->fullId() : FullMsgId();
@@ -3601,6 +3611,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 				const auto media = (view ? view->media() : nullptr);
 				const auto mediaHasTextForCopy = media && media->hasTextForCopy();
 				if (const auto document = media ? media->getDocument() : nullptr) {
+					if (document->isVideoFile() || document->isVideoMessage()) {
+						addDocumentActions(document, item);
+					}
 					if (!view->isIsolatedEmoji() && document->sticker()) {
 						const auto sending = item->isSending();
 						if (document->sticker()->set) {
@@ -3928,6 +3941,12 @@ bool HistoryInner::hasCopyRestriction(HistoryItem *item) const {
 
 bool HistoryInner::hasCopyMediaRestriction(
 		not_null<HistoryItem*> item) const {
+	const auto media = item->media();
+	const auto document = media ? media->document() : nullptr;
+	if (document && (document->isVideoFile() || document->isVideoMessage())
+		&& Data::XxxgramHistory::Eligible(item)) {
+		return item->forbidsSaving();
+	}
 	return hasCopyRestriction(item) || item->forbidsSaving();
 }
 

@@ -52,7 +52,7 @@ void AddSaveDocumentAction(
 			DocumentSaveClickHandler::Mode::ToNewFile);
 	});
 	if (!document->isMusicForProfile() || (fromSaved && inProfile)) {
-		const auto text = document->isVideoFile()
+		const auto text = (document->isVideoFile() || document->isVideoMessage())
 			? tr::lng_context_save_video(tr::now)
 			: document->isVoiceMessage()
 			? tr::lng_context_save_audio(tr::now)

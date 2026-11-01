@@ -584,7 +584,9 @@ ListItemSelectionData Provider::computeSelectionData(
 bool Provider::allowSaveFileAs(
 		not_null<const HistoryItem*> item,
 		not_null<DocumentData*> document) {
-	return item->allowsForward();
+	return item->allowsForward()
+		|| ((document->isVideoFile() || document->isVideoMessage())
+			&& item->allowsMediaDownloadControls());
 }
 
 QString Provider::showInFolderPath(

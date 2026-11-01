@@ -11,9 +11,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/file_utilities.h"
 #include "core/application.h"
 #include "data/data_document.h"
+#include "data/data_media_types.h"
 #include "data/data_session.h"
 #include "data/data_download_manager.h"
 #include "data/data_photo.h"
+#include "data/xxxgram_history.h"
+#include "history/history_item.h"
 #include "main/main_session.h"
 
 FileClickHandler::FileClickHandler(FullMsgId context)
@@ -81,7 +84,15 @@ void DocumentSaveClickHandler::Save(
 	}
 
 	if (data->forbidsFileSave()) {
-		return;
+		const auto id = std::get_if<FullMsgId>(&origin.data);
+		const auto item = id ? data->owner().message(*id) : nullptr;
+		const auto media = item ? item->media() : nullptr;
+		if (!(data->isVideoFile() || data->isVideoMessage())
+			|| !media || media->document() != data
+			|| !Data::XxxgramHistory::Eligible(item)
+			|| item->forbidsSaving()) {
+			return;
+		}
 	}
 	auto savename = QString();
 	if (mode == Mode::ToCacheOrFile && data->saveToCache()) {

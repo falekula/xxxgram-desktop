@@ -441,6 +441,9 @@ void AddDocumentActions(
 		menu->addAction(tr::lng_context_cancel_download(tr::now), [=] {
 			document->cancel();
 		}, &st::menuIconCancel);
+		if (document->isVideoFile() || document->isVideoMessage()) {
+			AddSaveDocumentAction(menu, item, document, list);
+		}
 		return;
 	}
 	const auto controller = list->controller();

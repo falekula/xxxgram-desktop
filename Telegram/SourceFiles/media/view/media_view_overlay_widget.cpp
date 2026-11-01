@@ -1684,6 +1684,9 @@ bool OverlayWidget::computeSaveButtonVisible() const {
 	} else if (_photo) {
 		return _photo->hasVideo() || _photoMedia->loaded();
 	} else if (_document) {
+		if (_document->isVideoFile() || _document->isVideoMessage()) {
+			return true;
+		}
 		return _document->filepath(true).isEmpty() && !_document->loading();
 	} else {
 		return false;
@@ -3481,6 +3484,10 @@ void OverlayWidget::downloadMedia() {
 			showPremiumDownloadPromo();
 		}
 		return;
+	}
+	if (_document && (_document->isVideoFile() || _document->isVideoMessage())
+		&& (_document->loading() || !_document->filepath(true).isEmpty())) {
+		return saveAs();
 	}
 
 	QString path;
