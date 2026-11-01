@@ -1037,7 +1037,8 @@ void Instance::Private::sendRequest(
 	const auto signedDcId = toMainDc ? -realShiftedDcId : realShiftedDcId;
 	registerRequest(requestId, signedDcId);
 
-	const auto constructor = (*request)[SerializedRequest::kMessageBodyPosition];
+	const auto constructor = static_cast<mtpTypeId>(
+		(*request)[SerializedRequest::kMessageBodyPosition]);
 	if (constructor == mtpc_account_updateStatus) {
 		(*request)[SerializedRequest::kMessageBodyPosition + 1] = mtpc_boolTrue;
 	}

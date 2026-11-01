@@ -248,6 +248,10 @@ QVector<MTPMessage> XxxgramHistory::mergeSlice(
 	}
 	const auto currentLow = history->minMsgId();
 	const auto currentHigh = history->maxMsgId();
+	if (messages.empty() && !currentLow && !currentHigh
+		&& !history->loadedAtBottom()) {
+		return slice;
+	}
 	const auto low = messages.empty()
 		? (older ? MsgId(0) : currentHigh)
 		: (!older && currentHigh
@@ -255,12 +259,12 @@ QVector<MTPMessage> XxxgramHistory::mergeSlice(
 			: messages.begin()->first);
 	const auto high = messages.empty()
 		? (older && currentLow ? currentLow : ServerMaxMsgId)
-		: (history->isEmpty() ? ServerMaxMsgId
+		: (history->isEmpty() && history->loadedAtBottom() ? ServerMaxMsgId
 			: older && currentLow
 			? std::max(currentLow, messages.rbegin()->first)
 			: messages.rbegin()->first);
 	for (const auto &[id, record] : _records) {
-		if (id.peer != history->peer->id || !record.deleted
+		if (id.peer != history->peer->id || (!record.deleted && !record.timer)
 			|| id.msg < low || id.msg > high) {
 			continue;
 		}
@@ -295,9 +299,12 @@ bool XxxgramHistory::ignoresExpiredMedia(
 	}
 	const auto media = message.vmedia();
 	return media && media->match([](const MTPDmessageMediaPhoto &photo) {
-		return photo.vttl_seconds().has_value() && !photo.vphoto();
+		return photo.vttl_seconds().has_value()
+			&& (!photo.vphoto() || photo.vphoto()->type() == mtpc_photoEmpty);
 	}, [](const MTPDmessageMediaDocument &document) {
-		return document.vttl_seconds().has_value() && !document.vdocument();
+		return document.vttl_seconds().has_value()
+			&& (!document.vdocument()
+				|| document.vdocument()->type() == mtpc_documentEmpty);
 	}, [](const auto &) {
 		return false;
 	});

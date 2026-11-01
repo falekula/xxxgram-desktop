@@ -88,6 +88,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/send_gif_with_caption_box.h"
 #include "data/components/sponsored_messages.h"
 #include "data/data_session.h"
+#include "data/xxxgram_history.h"
 #include "data/data_changes.h"
 #include "data/data_folder.h"
 #include "data/data_media_types.h"
@@ -6772,6 +6773,9 @@ CopyRestrictionType CopyRestrictionTypeFor(
 CopyRestrictionType CopyMediaRestrictionTypeFor(
 		not_null<PeerData*> peer,
 		not_null<HistoryItem*> item) {
+	if (Data::XxxgramHistory::Eligible(item) && !item->forbidsSaving()) {
+		return CopyRestrictionType::None;
+	}
 	if (const auto all = CopyRestrictionTypeFor(peer, item)
 		; all != CopyRestrictionType::None) {
 		return all;

@@ -16,6 +16,7 @@
 #include "ui/widgets/checkbox.h"
 #include "ui/widgets/labels.h"
 #include "ui/toast/toast.h"
+#include "ui/wrap/padding_wrap.h"
 #include "window/window_session_controller.h"
 
 #include <QtCore/QDir>
@@ -78,12 +79,19 @@ Ui::NumberInput *AddNumber(
 		box,
 		rpl::single(title),
 		st::boxLabel));
-	const auto input = box->addRow(object_ptr<Ui::NumberInput>(
+	const auto wrap = box->addRow(object_ptr<Ui::FixedHeightWidget>(
 		box,
+		st::defaultInputField.heightMin + 2 * st::boxPadding.bottom()));
+	const auto input = Ui::CreateChild<Ui::NumberInput>(
+		wrap,
 		st::defaultInputField,
 		rpl::single(QString()),
 		QString::number(value),
-		maximum));
+		maximum);
+	wrap->widthValue() | rpl::on_next([=](int width) {
+		input->resize(width, input->height());
+		input->moveToLeft(0, st::boxPadding.bottom());
+	}, input->lifetime());
 	input->setInputMethodHints(Qt::ImhDigitsOnly | Qt::ImhNoPredictiveText);
 	return input;
 }

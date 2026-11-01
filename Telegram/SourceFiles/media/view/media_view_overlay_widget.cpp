@@ -80,6 +80,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/components/sponsored_messages.h"
 #include "data/data_group_call.h"
 #include "data/data_session.h"
+#include "data/xxxgram_history.h"
 #include "data/data_changes.h"
 #include "data/data_channel.h"
 #include "data/data_chat.h"
@@ -1472,7 +1473,8 @@ bool OverlayWidget::hasCopyMediaRestriction(bool skipPremiumCheck) const {
 			? !story->canDownloadIfPremium()
 			: !story->canDownloadChecked();
 	}
-	return (_history && !_history->peer->allowsForwarding())
+	return (_history && !_history->peer->allowsForwarding()
+		&& !(_message && Data::XxxgramHistory::Eligible(_message)))
 		|| (_message && _message->forbidsSaving());
 }
 

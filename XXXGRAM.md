@@ -22,7 +22,8 @@ are disabled so they cannot silently replace this build.
   configurable up to 10,000 messages and 64 MB per account. Old records are evicted
   at either limit. Messages never received by this client cannot be recovered.
 - Deleted records remain inline; previous text versions and media-change notices
-  are available in the message menu. Downloaded timed media shares the same cache
+  are available in the message menu. Deletions whose events were missed while
+  offline may remain unmarked. Downloaded timed media shares the same cache
   budget. Clearing history removes these local retained copies.
 - The client-side account quota is removed. Telegram's authentication and service
   limits still apply.

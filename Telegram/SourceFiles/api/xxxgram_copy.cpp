@@ -6,6 +6,7 @@
 #include "data/data_document.h"
 #include "data/data_chat_participant_status.h"
 #include "data/data_document_media.h"
+#include "data/data_file_origin.h"
 #include "data/data_media_types.h"
 #include "data/data_photo.h"
 #include "data/data_photo_media.h"

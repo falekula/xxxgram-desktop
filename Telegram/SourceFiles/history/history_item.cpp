@@ -3474,7 +3474,7 @@ bool HistoryItem::forbidsForward() const {
 }
 
 bool HistoryItem::forbidsSaving() const {
-	if (forbidsForward()) {
+	if (forbidsForward() && !Data::XxxgramHistory::Eligible(this)) {
 		return true;
 	} else if (_media && _media->ttlSeconds()) {
 		return !Data::XxxgramHistory::Eligible(this);
@@ -3486,7 +3486,8 @@ bool HistoryItem::forbidsSaving() const {
 
 bool HistoryItem::allowsMediaDownloadControls() const {
 	return !forbidsSaving()
-		&& _history->peer->allowsForwarding()
+		&& (_history->peer->allowsForwarding()
+			|| Data::XxxgramHistory::Eligible(this))
 		&& (!_media || _media->allowsForward());
 }
 
