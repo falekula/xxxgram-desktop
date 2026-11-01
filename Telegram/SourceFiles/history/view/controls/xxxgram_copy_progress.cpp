@@ -42,7 +42,7 @@ void XxxgramCopyProgress::show(Fn<void()> cancel) {
 	window->show(std::move(box));
 }
 
-void XxxgramCopyProgress::finish(QString error, bool queued) {
+void XxxgramCopyProgress::finish(QString error, QString successText) {
 	if (_impl->box) {
 		_impl->box->closeBox();
 		_impl->box = nullptr;
@@ -54,8 +54,8 @@ void XxxgramCopyProgress::finish(QString error, bool queued) {
 	}
 	if (!error.isEmpty()) {
 		window->show(Ui::MakeInformBox(std::move(error)));
-	} else if (queued) {
-		window->showToast(u"Копия добавлена в очередь"_q);
+	} else if (!successText.isEmpty()) {
+		window->showToast(std::move(successText));
 	}
 }
 

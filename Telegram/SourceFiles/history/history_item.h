@@ -612,6 +612,7 @@ public:
 
 	[[nodiscard]] bool isEmpty() const;
 	[[nodiscard]] MessageGroupId groupId() const;
+	void xxxgramDetachFromGroup();
 	[[nodiscard]] EffectId effectId() const;
 	[[nodiscard]] bool hasPossibleRestrictions() const;
 	[[nodiscard]] QString computeUnavailableReason() const;

@@ -1303,8 +1303,21 @@ void HistoryItem::finishEdition(int oldKeyboardTop) {
 void HistoryItem::setGroupId(MessageGroupId groupId) {
 	Expects(!_groupId);
 
+	if (_history->owner().xxxgramHistory().isDeleted(fullId())) {
+		return;
+	}
 	_groupId = groupId;
 	_history->owner().groups().registerMessage(this);
+}
+
+void HistoryItem::xxxgramDetachFromGroup() {
+	if (!_groupId) {
+		return;
+	}
+	_history->owner().groups().unregisterMessage(this);
+	_groupId = MessageGroupId();
+	_history->owner().requestItemViewRefresh(this);
+	invalidateChatListEntry();
 }
 
 bool HistoryItem::checkDiscussionLink(ChannelId id) const {

@@ -1168,7 +1168,13 @@ int Histories::sendPreparedMessage(
 			}).fail([=](
 					const MTP::Error &error,
 					const MTP::Response &response) {
-				fail(error, response);
+				if (prepared.deadline && error.type() == u"SCHEDULE_TOO_MUCH"_q) {
+					fail(MTP::Error::Local(
+						"XXXGRAM_QUEUE_FULL",
+						"Automatic send queue is full."), response);
+				} else {
+					fail(error, response);
+				}
 				finish();
 			}).afterRequest(
 				history->sendRequestId

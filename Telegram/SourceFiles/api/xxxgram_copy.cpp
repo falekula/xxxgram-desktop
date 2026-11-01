@@ -9,6 +9,7 @@
 #include "data/data_media_types.h"
 #include "data/data_photo.h"
 #include "data/data_photo_media.h"
+#include "data/data_user.h"
 #include "history/history.h"
 #include "history/history_item.h"
 #include "history/history_item_helpers.h"
@@ -36,7 +37,8 @@ public:
 		std::vector<SendAction> actions,
 		Data::ForwardOptions options,
 		TextWithTags comment,
-		FnMut<void()> queued);
+		FnMut<void()> queued,
+		bool retry = false);
 	void start();
 
 private:
@@ -63,8 +65,10 @@ private:
 	base::Timer _timer;
 	crl::time _started = 0;
 	bool _finished = false;
+	bool _retry = false;
 	std::shared_ptr<CopyJob> _keepAlive;
 	HistoryView::XxxgramCopyProgress _progress;
+
 };
 
 CopyJob::CopyJob(
@@ -72,12 +76,14 @@ CopyJob::CopyJob(
 		std::vector<SendAction> actions,
 		Data::ForwardOptions options,
 		TextWithTags comment,
-		FnMut<void()> queued)
+		FnMut<void()> queued,
+		bool retry)
 : _session(base::make_weak(&actions.front().history->session()))
 , _actions(std::move(actions))
 , _comment(std::move(comment))
 , _queued(std::move(queued))
 , _timer([=] { check(); })
+, _retry(retry)
 , _progress(&_actions.front().history->session()) {
 	if (ranges::any_of(_actions, [&](const SendAction &action) {
 		return &action.history->session() != _session.get();
@@ -269,7 +275,9 @@ void CopyJob::enqueue() {
 				stop(u"Файл больше недоступен. Скачайте его и повторите."_q);
 				return;
 			}
-			if (file.size > kFileSizePremiumLimit) {
+			const auto sizeLimit = _session->user()->isPremium()
+				? kFileSizePremiumLimit : kFileSizeLimit;
+			if (file.size > sizeLimit) {
 				stop(u"Файл превышает лимит Telegram."_q);
 				return;
 			}
@@ -363,7 +371,11 @@ void CopyJob::stop(QString error, bool queued) {
 		return;
 	}
 	_timer.cancel();
-	_progress.finish(std::move(error), queued);
+	_progress.finish(std::move(error), queued
+		? (_retry
+			? u"Новая попытка создана. Исходное сообщение сохранено."_q
+			: u"Копия добавлена в очередь"_q)
+		: QString());
 	_keepAlive.reset();
 }
 
@@ -387,8 +399,7 @@ bool XxxgramCopyIfNeeded(
 
 void XxxgramRetryCopy(
 		const HistoryItemsList &items,
-		SendAction action,
-		FnMut<void()> &&queued) {
+		SendAction action) {
 	if (items.empty()) {
 		return;
 	}
@@ -397,7 +408,8 @@ void XxxgramRetryCopy(
 		std::vector<SendAction>{ action },
 		Data::ForwardOptions::NoSenderNames,
 		TextWithTags(),
-		std::move(queued)
+		nullptr,
+		true
 	)->start();
 }
 

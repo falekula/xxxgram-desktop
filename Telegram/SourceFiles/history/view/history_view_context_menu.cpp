@@ -1795,21 +1795,10 @@ void FillContextMenuItems(
 					}
 				}
 			}
-			const auto oldIds = session->data().itemsToIds(items);
 			auto action = Api::SendAction(current->history());
 			action.replyTo = current->replyTo();
 			action.clearDraft = false;
-			Api::XxxgramRetryCopy(items, std::move(action), [=] {
-				if (const auto session = weak.get()) {
-					for (const auto id : oldIds) {
-						if (const auto old = session->data().message(id)) {
-							if (old->isScheduled() && old->hasFailed()) {
-								old->destroy();
-							}
-						}
-					}
-				}
-			});
+			Api::XxxgramRetryCopy(items, std::move(action));
 		}, &st::menuIconSend);
 	}
 	AddReplyToMessageAction(result, request, list);

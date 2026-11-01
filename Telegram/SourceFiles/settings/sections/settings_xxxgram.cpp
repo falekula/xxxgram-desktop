@@ -113,9 +113,6 @@ void ShowLimits(not_null<Window::SessionController*> controller) {
 			box,
 			u"WS-прокси"_q,
 			proxy->enabled()));
-		enabled->checkedChanges() | rpl::on_next([=](bool value) {
-			proxy->setEnabled(value);
-		}, enabled->lifetime());
 		box->addRow(object_ptr<Ui::FlatLabel>(
 			box,
 			proxy->statusValue(),
@@ -124,9 +121,6 @@ void ShowLimits(not_null<Window::SessionController*> controller) {
 			box,
 			u"Резерв через сторонние серверы"_q,
 			proxy->fallbackEnabled()));
-		fallback->checkedChanges() | rpl::on_next([=](bool value) {
-			proxy->setFallbackEnabled(value);
-		}, fallback->lifetime());
 		const auto icon = box->addRow(object_ptr<Ui::SettingsButton>(
 			box,
 			rpl::single(u"Выбрать иконку…"_q)));
@@ -152,6 +146,11 @@ void ShowLimits(not_null<Window::SessionController*> controller) {
 			session->settings().setXxxgramHistoryMegabytes(megabytes);
 			session->data().xxxgramHistory().limitsChanged();
 			session->saveSettingsDelayed();
+			if (!enabled->checked()) {
+				proxy->setEnabled(false);
+			}
+			proxy->setFallbackEnabled(fallback->checked());
+			proxy->setEnabled(enabled->checked());
 			box->closeBox();
 		};
 		box->addButton(tr::lng_settings_save(), save);

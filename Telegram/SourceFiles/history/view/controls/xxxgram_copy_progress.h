@@ -11,7 +11,7 @@ public:
 	explicit XxxgramCopyProgress(not_null<Main::Session*> session);
 	~XxxgramCopyProgress();
 	void show(Fn<void()> cancel);
-	void finish(QString error, bool queued);
+	void finish(QString error, QString successText);
 
 private:
 	struct Impl;

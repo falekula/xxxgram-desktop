@@ -670,15 +670,14 @@ bool SkipTaskbarSupported() {
 }
 
 QString ExecutablePathForShortcuts() {
+	// Stable absolute paths keep autostart working across atomic updates.
+	const auto installed = QDir::homePath()
+		+ u"/.local/opt/xxxgram/current/xxxgram"_q;
+	if (QFileInfo(installed).isExecutable()) {
+		return installed;
+	}
 	if (Core::UpdaterDisabled()) {
-		const auto &arguments = Core::Launcher::Instance().arguments();
-		if (!arguments.isEmpty()) {
-			const auto result = QFileInfo(arguments.first()).fileName();
-			if (!result.isEmpty()) {
-				return result;
-			}
-		}
-		return cExeName();
+		return QCoreApplication::applicationFilePath();
 	}
 	return cExeDir() + cExeName();
 }

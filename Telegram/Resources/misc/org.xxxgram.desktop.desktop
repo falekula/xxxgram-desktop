@@ -1,0 +1,21 @@
+[Desktop Entry]
+Name=xxxgram
+Comment=Telegram с настройками xxxgram
+TryExec=xxxgram
+Exec=xxxgram -- %U
+Icon=org.xxxgram.desktop
+Terminal=false
+StartupWMClass=xxxgram
+Type=Application
+Categories=Chat;Network;InstantMessaging;Qt;
+MimeType=x-scheme-handler/tg;x-scheme-handler/tonsite;x-scheme-handler/ton;
+Keywords=xxxgram;tg;chat;im;messaging;messenger;
+Actions=quit;
+SingleMainWindow=true
+X-GNOME-UsesNotifications=true
+X-GNOME-SingleWindow=true
+
+[Desktop Action quit]
+Exec=xxxgram -quit
+Name=Quit xxxgram
+Icon=application-exit

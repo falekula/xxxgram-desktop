@@ -818,6 +818,12 @@ void Account::writeMap() {
 
 void Account::reset() {
 	_writeSearchSuggestionsTimer.cancel();
+	// WHY: loggedOut() destroys the session first, including its archive writer.
+	// A pending preferences write must not recreate that user's data after
+	// the storage keys are reset or expose it to the next login in this slot.
+	_writePrefsTimer.cancel();
+	_prefs.clear();
+	_prefsChanged = false;
 
 	auto names = collectGoodNames();
 	_draftsMap.clear();

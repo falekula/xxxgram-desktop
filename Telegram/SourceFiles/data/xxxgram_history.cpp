@@ -21,8 +21,8 @@
 namespace Data {
 namespace {
 
-constexpr auto kStorageKey = "xxxgram.history.v1";
-constexpr auto kMagic = quint32(0x58584731);
+constexpr auto kStorageKey = "xxxgram.history.v2";
+constexpr auto kMagic = quint32(0x58584732);
 constexpr auto kMaximumBytes = 64 * 1024 * 1024;
 constexpr auto kMaximumRecords = 10000;
 constexpr auto kMaximumVersions = 30;
@@ -158,6 +158,7 @@ bool XxxgramHistory::retainDeleted(MsgId id) {
 		record.deleted = true;
 		record.order = ++_order;
 		if (const auto item = _owner->message(key)) {
+			item->xxxgramDetachFromGroup();
 			_owner->notifyItemDataChange(item);
 			_owner->requestItemResize(item);
 			_owner->requestItemRepaint(item);
@@ -426,7 +427,7 @@ qint64 XxxgramHistory::size(const Record &record) const {
 }
 
 qint64 XxxgramHistory::bytes() const {
-	auto result = qint64(8);
+	auto result = qint64(16);
 	for (const auto &[id, record] : _records) {
 		result += size(record);
 	}
@@ -478,7 +479,8 @@ void XxxgramHistory::write() {
 	auto bytes = QByteArray();
 	auto stream = QDataStream(&bytes, QIODevice::WriteOnly);
 	stream.setVersion(QDataStream::Qt_5_1);
-	stream << kMagic << quint32(_records.size());
+	stream << kMagic << quint64(_owner->session().userId().bare)
+		<< quint32(_records.size());
 	for (const auto &[id, record] : _records) {
 		stream << quint64(id.peer.value) << qint64(id.msg.bare)
 			<< record.message << record.text << record.versions
@@ -496,8 +498,11 @@ void XxxgramHistory::read() {
 	auto stream = QDataStream(bytes);
 	stream.setVersion(QDataStream::Qt_5_1);
 	auto magic = quint32(), count = quint32();
-	stream >> magic >> count;
-	if (magic != kMagic || count > kMaximumRecords) {
+	auto owner = quint64();
+	stream >> magic >> owner >> count;
+	if (stream.status() != QDataStream::Ok || magic != kMagic
+		|| owner != _owner->session().userId().bare
+		|| count > kMaximumRecords) {
 		return;
 	}
 	auto records = base::flat_map<FullMsgId, Record>();

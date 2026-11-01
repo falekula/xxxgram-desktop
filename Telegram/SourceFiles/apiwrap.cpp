@@ -537,6 +537,10 @@ void ApiWrap::sendMessageFail(
 			Ui::MakeInformBox(
 				PeerFloodErrorText(&session(), PeerFloodType::Send)),
 			Ui::LayerOption::CloseOther);
+	} else if (error == u"CLIENT_XXXGRAM_QUEUE_FULL"_q) {
+		if (show) {
+			show->showToast(u"Очередь заполнена. Повторите отправку позже."_q);
+		}
 	} else if (show && error == u"CLIENT_XXXGRAM_SCHEDULE_EXPIRED"_q) {
 		show->showToast(u"Связь задержалась. Повторите отправку."_q);
 	} else if (show && error == u"USER_BANNED_IN_CHANNEL"_q) {
@@ -4788,7 +4792,10 @@ void ApiWrap::sendRichMessage(
 void ApiWrap::sendMessage(
 		MessageToSend &&message,
 		std::optional<MsgId> localMessageId) {
-	Api::ApplyXxxgramSchedule(message.action, message.textWithTags.text);
+	if (!message.textWithTags.text.trimmed().isEmpty()
+		|| !message.webPage.url.isEmpty()) {
+		Api::ApplyXxxgramSchedule(message.action, message.textWithTags.text);
+	}
 	const auto history = message.action.history;
 	const auto peer = history->peer;
 	const auto &textWithTags = message.textWithTags;

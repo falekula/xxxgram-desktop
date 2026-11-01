@@ -73,6 +73,7 @@ private:
 	bool _restoringMedia = false;
 	base::Timer _writeTimer;
 	rpl::lifetime _lifetime;
+
 };
 
 } // namespace Data

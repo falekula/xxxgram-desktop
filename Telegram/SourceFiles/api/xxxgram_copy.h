@@ -15,7 +15,6 @@ namespace Api {
 
 void XxxgramRetryCopy(
 	const HistoryItemsList &items,
-	SendAction action,
-	FnMut<void()> &&queued = nullptr);
+	SendAction action);
 
 } // namespace Api
